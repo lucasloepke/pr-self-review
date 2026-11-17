@@ -90,45 +90,36 @@ route needs credentials or data that are unavailable): the Proof row says
 
 ## Feature-flag gating
 
-A rollout-safety check: user-visible changes should ship behind a feature flag,
-so merging is not the same as releasing. It is a per-repo policy, so the skill
-checks it only where the repo has a flag system.
+Not a standing requirement. The skill never complains that a change lacks a
+feature flag. A focused gating check runs **only when the original issue or
+ticket says the work must be gated** (or the author adds that at intent
+confirmation).
 
-**Is the policy on?** In order: `.self-review.yml` (`flags: required | warn |
-off`, plus which change kinds need a flag); otherwise detected from the repo —
-a flag library or helper in use, or a rule in CLAUDE.md / CONTRIBUTING.md. No
-flag system found → the check is reported as `Not applicable`, not passed.
+**Trigger.** In phase 2, the linked issue/ticket and PR body are read for a
+gating requirement ("behind a flag", "gated by `<flag>`", "dark launch", a
+named flag). If found, it becomes an acceptance criterion in the intent
+statement — so the author confirms it along with everything else. No such
+requirement → the report row reads `Not required` and nothing is checked.
 
-**What needs a flag (default when the policy is on):** new or changed
-presentational components and any other new user-visible behaviour. Exempt by
-default: bug fixes that restore intended behaviour, copy typos, internal
-refactors with no visible change. The author can declare an exemption at intent
-confirmation; it is printed in the report with the reason.
+**What the focused check covers:**
 
-**What is checked:**
-
-- Every entry point to the new UI or behaviour is behind the flag — including
-  routes, nav links, and shared components that render it — not just the main
+- Every entry point to the new UI or behaviour is behind the flag — routes,
+  nav links, and shared components that render it — not just the main
   component.
-- The flag defaults to **off**, and is registered wherever the repo registers
-  flags (config, schema, docs).
+- The flag is the one the ticket names (when it names one), defaults to
+  **off**, and is registered wherever the repo registers flags.
 - **Flag off is a no-op:** with the flag off, the head behaves and looks like
   the base. Proven, not assumed (see below).
-- **Flag on works:** the new behaviour meets the acceptance criteria.
+- **Flag on works:** the new behaviour meets the other acceptance criteria.
 - Tests cover both states.
-- The old path is not deleted or altered in the same PR, and there is a note
-  or issue for removing the flag later.
 
 **Proof, three-way:** for gated visual changes the screenshot set becomes
 *base* / *head, flag off* / *head, flag on*. Base and flag-off must match (pixel
 diff within a small tolerance); a difference is a finding, since it means the
 change leaks outside the gate.
 
-**Severity:** under `required`, an ungated user-visible change or a flag-off
-difference is **Blocking**; under `warn`, **Important**. Adding a missing flag
-is a fix the skill can make in don't-stop mode only when the repo has an
-obvious existing pattern to copy; otherwise it is `Open — needs author
-decision`.
+**Severity:** the ticket asked for gating, so a miss is a failure of stated
+intent — an ungated entry point or a flag-off difference is **Blocking**.
 
 ## Pipeline
 
@@ -165,9 +156,9 @@ reported as passing.
 - Run them on the PR head. For any failure, re-run that check on the merge base
   to separate **regressions** (pass on base, fail on head) from **pre-existing**
   failures (reported, not blocking for this PR).
-- Run the feature-flag gating check where the repo's policy is on (see
-  Feature-flag gating); its flag-off comparison is a regression check in its
-  own right.
+- If the ticket required feature-flag gating, run the focused gating check
+  (see Feature-flag gating); its flag-off comparison is a regression check in
+  its own right.
 - Check for weakened safety nets in the diff itself: deleted, skipped or
   loosened tests and assertions, lowered coverage thresholds, disabled lint
   rules, widened types.
@@ -327,7 +318,7 @@ kept and say "None" so the shape never changes.
 | End-to-end | Pass / Fail / Not run | |
 | Independent review | <n> reviewers, <n> raised, <n> verified | |
 | Proof | Provided / Not produced | |
-| Feature-flag gating | Pass / Fail / Exempt / Not applicable | <flag name> |
+| Feature-flag gating | Pass / Fail / Not required | <flag name> |
 
 **Review depth:** <Core | Shared | Leaf | Inert> — <one line on why>
 
