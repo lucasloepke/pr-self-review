@@ -19,8 +19,13 @@ suppressions and an evaluation harness.
 /self-review                  # PR for the current branch
 /self-review 123              # a specific PR
 /self-review --dont-stop      # after intent is confirmed, fix and post without pausing
-/self-review 123 --update    # after new pushes: re-verify open findings, review only new changes
+/self-review 123 --update     # after new pushes: re-verify open findings, review only new changes
+/self-review --dry-run        # run everything, write the report to a local file; no commit, push or post
 ```
+
+`--dry-run` also works on a branch with no PR (diffed against the default
+branch) and can take a pre-confirmed brief from a file, which is how the
+evaluation runs unattended.
 
 ## Modes
 
@@ -28,11 +33,14 @@ suppressions and an evaluation harness.
 |---|---|---|
 | Confirm intent | Stops for a yes | Stops for a yes |
 | After findings | Shows findings, asks **"Continue with fixes, or chat about it?"** | Continues |
-| Fixes | The findings the author chose to fix | Every verified Blocking, Important and Suggestion with a clear fix; Nits are listed, not fixed |
-| Commit, push, post | Shows the fix diff and the rendered comment, asks once | Commits, pushes and posts |
+| Red tests | Stops, offers to diagnose; the author may proceed | Recorded as Blocking; continues |
+| Fixes | The findings the author chose to fix | Every skeptic-confirmed Blocking, Important and Suggestion with a clear fix; Nits are listed, not fixed |
+| Commit, push, publish proof, post | Shows the fix diff and the rendered comment, asks once | Does all four |
 
-Intent is the one stop in both modes: it is the only input the skill cannot
-derive, and everything after it is judged against it.
+Intent is the one stop both modes share: it is the only input the skill cannot
+derive, and everything after it is judged against it. Anything else that needs
+a yes before the review can start — opening a draft PR, writing a missing
+description — is asked at that same stop.
 
 **Nothing is committed or pushed without a go-ahead in default mode.** Fixes are
 made in the working tree; the author sees the diff; on approval the skill
@@ -44,6 +52,10 @@ Even in don't-stop mode, two kinds of finding are never auto-fixed and go to the
 report as `Open — needs author decision`: ones whose fix needs a product or
 design choice, and ones the skeptic could not verify where the fix would change
 behaviour. Don't-stop means no pauses, not guessing.
+
+Suggestions normally skip the skeptic. In don't-stop mode, any Suggestion that
+would be auto-fixed is sent through the skeptic first, so nothing is changed on
+one agent's say-so.
 
 Nits are never auto-fixed in don't-stop mode. Reviewer and skeptic agreeing is
 good evidence that a *defect* is real, but on matters of taste it only shows two
@@ -58,14 +70,15 @@ whole takes the highest tier present.
 
 | Tier | What lands here | How it is reviewed |
 |---|---|---|
-| **Core** | Infrastructure, auth, data layer and migrations, build/deploy config, payments, public API | **Deep read.** Whole files, not just hunks; every caller traced; three reviewers (the third on security + compatibility); full regression and e2e. |
+| **Core** | Infrastructure, auth, data layer and migrations, build/deploy config, payments, public API | **Deep read.** Whole files, not just hunks; every caller traced; three or more reviewers (callers and security + compatibility get their own); full regression and e2e. |
 | **Shared** | Utilities, hooks, shared components, anything imported from several places | **Careful review.** Every call site of a changed signature or behaviour checked; two reviewers; e2e on at least one consumer per changed behaviour. |
 | **Leaf** | Presentational components, copy, styling, a single screen | **Proof-led.** Light code read by one reviewer; the weight is on evidence that it looks and behaves right (see Proof). |
 | **Inert** | Docs, comments, non-shipping config | Skim for accuracy; no reviewers. |
 
 How an area gets its tier, in order of precedence:
 
-1. The repo's own config (`.self-review.yml`: path globs → tier), when present.
+1. The repo's own config (`.self-review/config.yml`: path globs → tier), when
+   present.
 2. **Fan-in**: how many files import the changed module. High fan-in is Shared
    at least, whatever the folder is called.
 3. Path and content heuristics (`auth/`, `migrations/`, `infra/`, CI files,
@@ -117,8 +130,8 @@ confirmation).
 
 **Trigger.** In phase 2, the linked issue/ticket and PR body are read for a
 gating requirement ("behind a flag", "gated by `<flag>`", "dark launch", a
-named flag). If found, it becomes an acceptance criterion in the intent
-statement — so the author confirms it along with everything else. No such
+named flag). If found, it is recorded in the brief's `flagGate` and becomes an
+acceptance criterion — so the author confirms it along with everything else. No such
 requirement → the report row reads `Not required` and nothing is checked.
 
 **What the focused check covers:**
@@ -165,17 +178,17 @@ report one.
   input or state that goes wrong). No failure case → not a finding. This keeps
   "could be cleaner" out of the serious tiers.
 - **Severity ceilings per lens, enforced in code**, whatever the agent returns:
-  correctness, silent failures and caller regressions can reach Blocking;
-  tests, types and stale comments cap at Important; simplification caps at
-  Suggestion; style is a Nit.
+  correctness, error handling and impact on callers can reach Blocking; test
+  adequacy, AI-code failure modes, types and stale comments cap at Important;
+  simplification caps at Suggestion; style is a Nit.
 - Blocking and Important findings each go to a skeptic that tries to disprove
   them before the author sees anything.
 
 **Stop.** The rules that prevent a loop:
 
-1. **The verdict depends only on Blocking and Important.** A PR with open
-   Suggestions and Nits is `Ready for review`. Nothing below Important can
-   hold a PR back.
+1. **No finding below Important affects the verdict.** A PR with open
+   Suggestions and Nits is `Ready for review` (the full verdict rule is under
+   Report comment format).
 2. **Suggestions and Nits are capped** — the top five of each are shown, the
    rest collapsed — and are raised **once**. They are never re-raised on a
    later run.
@@ -204,7 +217,7 @@ false-positive rate.
 spawned fresh with none of the spawning session's chat history, never as a
 fork. Its brief is a fixed prompt template plus artifacts only: its partition
 of the diff, the confirmed intent brief, repo conventions, each area's tier and
-the suppression list. It never receives the session's summary or opinion of the
+the repo's suppression list. It never receives the session's summary or opinion of the
 change, the author's reasoning, or other agents' conclusions.
 
 ## Pipeline
@@ -215,15 +228,16 @@ reported as passing.
 ### 1. Target, context and prior state
 
 - Current branch's PR via `gh pr view`; optional PR number argument.
-- If no PR exists, push the branch and open a **draft** PR so the report has
-  somewhere to live (default mode asks first; don't-stop mode just does it).
+- If no PR exists, the branch is pushed and a **draft** PR opened so the
+  report has somewhere to live — after the author agrees at the intent stop,
+  in both modes. Until then the skill works from the branch and its commits.
 - Gather: diff against the merge base, commits, PR title/body, linked issue, CI
   status, the repo's CLAUDE.md / CONTRIBUTING.md / PR template.
 - Record the head SHA being reviewed.
 - **Load prior state:** find the existing self-review comment and parse its
   state block (last reviewed SHA, brief, findings with ids and dispositions).
-  Used by `--update`, by the *Changes since the last run* section, and so decided findings are not
-  re-raised.
+  Used by `--update`, by the *Changes since the last run* section, and so
+  decided findings are not re-raised.
 - **Partition the diff:** production hunks and test hunks are separated. Test
   fixtures go only to the test lens, so they do not crowd out production code
   in the other reviewers' context.
@@ -264,13 +278,13 @@ The confirmed brief goes to every review agent and to the top of the report.
 
 ### 3. Tests and regression check
 
-- **Use CI's result when it is current.** If the local head equals the pushed head and checks
-  exist, read `gh pr checks`. If there are unpushed commits or no CI, discover
+- **Use CI's result when it is current.** If the local head equals the pushed
+  head and checks exist, read `gh pr checks`. If there are unpushed commits or no CI, discover
   the project's commands (tests, lint, typecheck, build) from package scripts,
   Makefile, CI config, CLAUDE.md and run them locally once.
 - **Red is the first Blocking finding.** In default mode the skill stops and
   offers to diagnose; the author may choose to proceed on red, and the report
-  records that they did.
+  records that they did. Don't-stop mode records the finding and continues.
   CI pending → continue, and the report says so.
 - For any failure, re-run that check on the merge base to separate
   **regressions** (pass on base, fail on head) from **pre-existing** failures
@@ -354,12 +368,14 @@ Done inside the workflow, before the author sees anything.
   why the failure case cannot occur), **reduced** (real, but a lower severity
   is set) or **unproven** (the code alone could not settle it — the finding is
   kept and marked as such).
-- Suggestions and Nits skip the skeptic.
+- Suggestions and Nits skip the skeptic (except Suggestions about to be
+  auto-fixed in don't-stop mode).
 - Rejected findings leave triage and are listed in the report.
 - Ceilings, de-duplication (same file, nearby line, same claim) and finding
   ids are applied by code, not by a model. An id is `F-` plus a short hash of
   file and claim, so the same finding keeps its id across runs.
-- Suppressed findings (see Learned suppressions) are removed and counted.
+- Findings a reviewer matched to a suppression rule arrive in a separate
+  list and are only counted (see Learned suppressions).
 
 ### 7. Findings and triage
 
@@ -417,7 +433,9 @@ in writing it.
 - Everything bound for GitHub passes redaction first (see Redaction).
 - **Gate (default mode):** the fix diff and the rendered comment are shown;
   one go-ahead covers commit (one commit per finding, message referencing the
-  finding id), push and post. Don't-stop mode does all three directly.
+  finding id), push, publishing proof images to the assets branch, and
+  posting. Don't-stop mode does all of these directly. Commit SHAs in the
+  comment are filled in after the commits exist.
 - One comment, posted with `gh pr comment`, rendered from a fixed template.
   A re-run **edits** the existing comment; there is one self-review comment
   per PR.
@@ -431,10 +449,14 @@ After new commits are pushed:
 2. Re-verify every finding with status `open` or `fixed` against the pushed
    code (phase 9's "Resolved?" check) — fixed ones too, since the push may
    differ from what was verified locally.
-3. Run phases 3–6 only on hunks new since the last reviewed SHA.
-4. Update the comment, filling in *Changes since the last run*.
+3. Reuse the confirmed brief. If the new hunks contain changes it does not
+   account for, the intent stop reopens for those changes only.
+4. Run phases 3–6 only on hunks new since the last reviewed SHA, then triage,
+   fix and verify anything newly raised as usual (phases 7–9).
+5. Update the comment, filling in *Changes since the last run*.
 
-Findings already deferred or declined are carried forward untouched.
+Findings already deferred or declined are carried forward untouched. With no
+prior state on the PR, `--update` falls back to a full run.
 
 ## Report comment format
 
@@ -514,10 +536,17 @@ non-visual proof goes in a collapsed block>
 Status vocabulary is closed: `Fixed in <sha>`, `Open`, `Open — needs author
 decision`, `Deferred`, `Declined`, `Pre-existing`.
 
-Verdict rule: **Not ready** if any Blocking finding is open or tests are red;
-**Ready with open items** if any Important finding is open, deferred or
-declined, or owed proof was not produced; otherwise **Ready for review** —
-regardless of Suggestions and Nits.
+Verdict rule, first match wins:
+
+1. **Not ready** — any Blocking finding is `Open`, or tests are red.
+2. **Ready with open items** — any Blocking or Important finding is open,
+   deferred or declined; or tests are pending or were not run; or owed proof
+   was not produced.
+3. **Ready for review** — otherwise, regardless of Suggestions and Nits.
+
+A Blocking finding the author deferred or declined does not hold the verdict at
+*Not ready* — the author owns that call — but it is listed first under
+*Decisions worth a second opinion*.
 
 ## Redaction before anything is posted
 
@@ -545,9 +574,11 @@ So the same noise is not raised on every PR:
   `.self-review/suppressions.yml` in the repo: the pattern, the reason, who
   and when.
 - Reviewers receive the suppression list as part of their brief (it is a repo
-  artifact, not session history) and do not re-raise matching findings.
-- Suppressed findings are counted in the report ("<n> suppressed by repo
-  rules"), so they are hidden, not invisible.
+  artifact, not session history). A finding that matches a rule is not raised;
+  the reviewer returns it in a separate `suppressed` list with the rule it
+  matched.
+- That list is counted in the report ("<n> suppressed by repo rules"), so
+  suppressed findings are hidden, not invisible.
 - Suppressions never apply to Blocking findings; those are always raised.
 - The file is committed, so it is reviewable and shared with anyone else using
   the skill on the repo.
@@ -566,8 +597,11 @@ this repo:
 - **An answer key** (`eval/expected.yml`): per branch, the defects that must be
   found (file, line range, minimum severity) and the tier it should be
   classified as.
-- **A runner** (`eval/run.sh`): runs the skill in don't-stop mode against each
-  branch with posting disabled, collects the report as JSON, and scores it.
+- **An answer key** also holds each branch's confirmed intent brief, so the
+  intent stop needs no human.
+- **A runner** (`eval/run.sh`): runs the skill with `--dont-stop --dry-run`
+  against each branch, feeding it that brief, collects the report and state
+  as JSON, and scores it.
 - **Scores:**
   - *Catch rate* — planted defects found at or above the expected severity.
   - *False-positive rate* — findings on clean branches, and findings not in
@@ -589,7 +623,7 @@ this repo:
 
 ## AI-code failure modes checklist
 
-Used by the dedicated reviewer in phase 5:
+The AI-code failure modes lens in phase 5 works from this list:
 
 - Calls to APIs, flags, config keys or packages that do not exist or have a
   different signature; new dependencies that are unneeded or unverified.
@@ -616,7 +650,7 @@ pr-self-review/
 ├── skills/
 │   └── self-review/
 │       ├── SKILL.md              # the procedure: modes, phases, gates, stance
-│       ├── review-workflow.js  # reviewer + skeptic prompts, schemas, ceilings, dedupe, ids
+│       ├── review-workflow.js    # reviewer + skeptic prompts, schemas, ceilings, dedupe, ids
 │       ├── ai-failure-modes.md   # the checklist above
 │       ├── report-template.md    # the PR comment template (single source)
 │       ├── depth-and-proof.md    # tier rules, proof owed per change kind
@@ -642,10 +676,10 @@ pr-self-review/
 Core loop first, then the additions, each measured against a working
 baseline.
 
-1. **Core loop:** `SKILL.md` and
-   `review-workflow.js` — intent brief and gate, description drafting, CI-
-   aware test check, partitioned reviewers, per-finding skeptic, triage,
-   fresh-agent fix verification, state block, `--update`.
+1. **Core loop:** `SKILL.md` and `review-workflow.js` — intent brief and gate,
+   description drafting, CI-aware test check, partitioned reviewers,
+   per-finding skeptic, triage, fresh-agent fix verification, state block,
+   `--update`, `--dry-run`.
 2. `report-template.md` and `post-report.sh` — lock the output format.
 3. Evaluation: fixture app, planted-defect branches, answer key, runner.
    Record a baseline score for the core loop before adding anything.
@@ -666,9 +700,12 @@ Personal use first, public listing later. So from the start:
 
 - Plugin layout and manifest, installed locally by symlink until it is listed.
 - Nothing specific to one machine or repo: commands are discovered per project,
-  no hardcoded paths, `gh` is the only hard dependency.
-- Thresholds and reviewer count readable from an optional per-repo config, so
-  others can tune without forking.
+  no hardcoded paths. `gh` is the only hard dependency of the core loop;
+  screenshot proof also needs a headless browser and is reported as not
+  produced without one.
+- All per-repo files live in one committed folder, `.self-review/`:
+  `config.yml` (tier globs, thresholds, reviewer count — optional, so others
+  can tune without forking) and `suppressions.yml`.
 - README written for a stranger: what it posts on your PR, what it pushes, and
   what each mode does without asking.
 
@@ -696,3 +733,6 @@ Personal use first, public listing later. So from the start:
   wording against catch rate and false-positive rate, not by feel.
 - **Known misses:** which kinds of defect have slipped through self-review so
   far? Those seed the first fixtures and the misses log.
+- **Name:** the command is planned as `/self-review`. If another skill with
+  that name is already installed, the two collide — rename this one (for
+  example `/pr-self-review`, matching the repo), or replace the other?
