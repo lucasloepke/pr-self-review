@@ -156,6 +156,12 @@ reported as passing.
 - Run them on the PR head. For any failure, re-run that check on the merge base
   to separate **regressions** (pass on base, fail on head) from **pre-existing**
   failures (reported, not blocking for this PR).
+- **Flaky tests:** a failing test is re-run (up to twice) before it is blamed
+  on the PR. Fails-then-passes is reported as `Flaky`, with the test name, and
+  is not a regression. A test that also flakes on the base is pre-existing.
+- **Scanners, when the repo already has them:** secret scan, dependency audit
+  and static analysis are run if configured or installed, and their output is
+  handed to the reviewers as leads. The skill does not install tools.
 - If the ticket required feature-flag gating, run the focused gating check
   (see Feature-flag gating); its flag-off comparison is a regression check in
   its own right.
@@ -286,6 +292,8 @@ Not a second run of the pipeline — a scoped check sized to the fixes:
 
 ### 10. Post the PR report comment
 
+- Everything bound for GitHub passes redaction first (see Redaction before
+  anything is posted).
 - One comment, posted with `gh pr comment`, rendered from a fixed template so
   it looks identical on every PR.
 - Idempotent: the comment carries a hidden marker
@@ -356,6 +364,69 @@ test or the before/after output in a collapsed block>
 Status vocabulary is closed: `Fixed in <sha>`, `Open`, `Open — needs author
 decision`, `Deferred`, `Rejected by author`, `Pre-existing`.
 
+## Redaction before anything is posted
+
+The report, the proof and the screenshots end up on GitHub — publicly, for a
+public repo. Before phase 10 pushes assets or posts the comment:
+
+- Text (command output, request/response, logs, test output) is scanned for
+  secrets and personal data — tokens, keys, cookies, auth headers, `.env`
+  values, emails, local home paths — and matches are masked.
+- Screenshots are taken with seeded or fake data only; a capture from a
+  session using real credentials or real user data is not published.
+- A reviewer subagent inspects each image for visible secrets or personal data
+  before it is pushed to the assets branch.
+- Anything that cannot be confidently cleaned is left out and listed under
+  *Not verified* as "withheld: may contain sensitive data".
+- Don't-stop mode is not exempt: a redaction hit downgrades that item to
+  withheld rather than stopping, and never posts it raw.
+
+## Learned suppressions
+
+So the same noise is not raised on every PR:
+
+- When the author rejects a finding (`Rejected by author`), the skill offers
+  to remember it. Accepted suppressions are written to
+  `.self-review/suppressions.yml` in the repo: the pattern, the reason, who
+  and when.
+- Reviewers receive the suppression list as part of their brief (it is a repo
+  artifact, not session history) and do not re-raise matching findings.
+- Suppressed findings are counted in the report ("<n> suppressed by repo
+  rules"), so they are hidden, not invisible.
+- Suppressions never apply to Blocking findings; those are always raised.
+- The file is committed, so it is reviewable and shared with anyone else using
+  the skill on the repo.
+
+## Evaluation
+
+The skill's quality is measured, not assumed. Built alongside the skill, in
+this repo:
+
+- **A fixture repo** (`eval/fixture-app/`): a small app with tests and a UI,
+  and a set of prepared branches, each a realistic PR with **known, planted
+  defects** — one or two per branch, drawn from the AI-code failure modes list
+  (a test that cannot fail, a swallowed error, an ungated entry point, a
+  visual regression, an off-by-one in shared code) — plus a few **clean**
+  branches with nothing wrong.
+- **An answer key** (`eval/expected.yml`): per branch, the defects that must be
+  found (file, line range, minimum severity) and the tier it should be
+  classified as.
+- **A runner** (`eval/run.sh`): runs the skill in don't-stop mode against each
+  branch with posting disabled, collects the report as JSON, and scores it.
+- **Scores:**
+  - *Catch rate* — planted defects found at or above the expected severity.
+  - *False-positive rate* — findings on clean branches, and findings not in
+    the key (each one hand-labelled once as real or noise).
+  - *Skeptic loss* — planted defects a reviewer raised but the skeptic
+    rejected.
+  - *Tier accuracy*, *fix success* (does the fix make the planted defect's
+    test pass), cost and wall-clock time per PR.
+- **Use:** run before every change to prompts, tiers or reviewer count, and
+  compare with the last run. A prompt change that lowers catch rate or raises
+  skeptic loss does not ship. Results are recorded in `eval/results/`.
+- Runs are noisy, so each branch is run several times and rates are reported
+  with their spread, not as single numbers.
+
 ## AI-code failure modes checklist
 
 Used by the dedicated reviewer in phase 5:
@@ -394,7 +465,13 @@ pr-self-review/
 │           ├── classify.sh       # fan-in + path heuristics → tier per area
 │           ├── capture.sh        # base worktree + head, same routes, screenshots
 │           ├── publish-assets.sh # push images to the assets branch, print URLs
+│           ├── redact.sh         # mask secrets and personal data in text proof
 │           └── post-report.sh    # find comment by marker; create or edit
+├── eval/
+│   ├── fixture-app/              # small app; branches with planted defects
+│   ├── expected.yml              # answer key per branch
+│   ├── run.sh                    # run the skill on each branch and score it
+│   └── results/                  # scored runs, for comparison over time
 └── .claude-plugin/
     └── plugin.json               # optional packaging
 ```
@@ -410,10 +487,14 @@ pr-self-review/
 5. Screenshot proof: `capture.sh` and `publish-assets.sh`. First settle the
    image-hosting question on a private test repo, since the template depends
    on it.
-6. Try it on real PRs: one clean, one with planted bugs (to measure what the
-   reviewers catch and what the skeptic wrongly rejects), one where e2e
-   cannot run, one visual-only, one touching core code.
-7. Package (plugin manifest, README install steps) and release.
+6. `redact.sh` and the image check — before don't-stop mode is allowed to
+   post anything.
+7. Evaluation: fixture app, planted-defect branches, answer key, runner. Record
+   a baseline score.
+8. Try it on real PRs: one clean, one where e2e cannot run, one visual-only,
+   one touching core code. Add any miss as a new fixture branch.
+9. Learned suppressions.
+10. Package (plugin manifest, README install steps) and release.
 
 ## Distribution
 
@@ -438,3 +519,8 @@ Personal use first, public listing later. So from the start:
   or keep them so old reports stay intact?
 - **Running the base:** two builds and two servers per visual PR is slow. Cache
   base screenshots per base SHA, or accept the cost?
+- **Same-model agreement:** reviewers and skeptic are the same model, so their
+  agreement is correlated. Run the skeptic on a different model? Measure with
+  the eval (skeptic loss, false positives) before deciding.
+- **Fast path:** is there a time or cost budget for small PRs beyond the Leaf
+  and Inert tiers? Decide from the eval's cost-per-PR numbers.
