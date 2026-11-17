@@ -5,7 +5,8 @@ confirm what it is meant to do, prove it does that without breaking anything, ha
 independent reviewers try to break it, fix what survives verification, and leave one
 uniform report comment on the PR.
 
-Status: plan only. Nothing is implemented yet.
+Status: build steps 1 and 2 (core loop, report format) are implemented under
+`skills/self-review/` and not yet run against a real PR. Tests: `node --test test/`.
 
 **Shape.** A core loop — intent brief, test check, partitioned parallel
 reviewers, per-finding skeptic, triage, fresh-agent fix verification, state
