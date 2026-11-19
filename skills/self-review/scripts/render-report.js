@@ -7,7 +7,7 @@
 //
 // input.json:
 // {
-//   "skillVersion": "0.1.0", "date": "2026-11-18", "mode": "default" | "dont-stop", "dryRun": false,
+//   "skillVersion": optional, defaults to .claude-plugin/plugin.json's version, "date": "2026-11-18", "mode": "default" | "dont-stop", "dryRun": false,
 //   "headSha": "…", "baseSha": "…", "tier": "Shared", "tierReason": "one line",
 //   "brief": { confirmed brief },
 //   "coverage": { "<acceptance criterion>": "covered" | "uncovered" },        optional
@@ -16,10 +16,12 @@
 //     "tests":      Pass | Fail | Pending | Not run          + "label": "CI @ `abc1234`" or "local `npm test`"
 //     "regression": Pass | Fail | Not run
 //     "e2e":        Pass | Fail | Not run
-//     "proof":      Provided | Not produced | Not required
+//     "proof":      Provided | Not produced | Not run | Not required
 //     "flagGate":   Pass | Fail | Not required
 //   },
 //   "proof": "markdown for the Proof section",                                  optional
+//   "screenshots": [{ "route", "before": url, "after": url, "changed" }],         optional
+//                  (published URLs; rendered as a before/after table above "proof")
 //   "review": { the review workflow's result },
 //   "decisions": { "F-…": { "status": "Fixed" | "Open" | "Open — needs author decision" | "Deferred"
 //                           | "Declined" | "Pre-existing", "commit": "sha", "evidence": "…", "reason": "…" } },
@@ -35,7 +37,9 @@ const RESULTS = {
   tests: ['Pass', 'Fail', 'Pending', 'Not run'],
   regression: ['Pass', 'Fail', 'Not run'],
   e2e: ['Pass', 'Fail', 'Not run'],
-  proof: ['Provided', 'Not produced', 'Not required'],
+  // Not produced: owed and producible, but it did not come out — caps the verdict.
+  // Not run: a kind of proof this version cannot make yet (screenshots) — shown, no cap.
+  proof: ['Provided', 'Not produced', 'Not run', 'Not required'],
   flagGate: ['Pass', 'Fail', 'Not required']
 }
 const RANK = { nit: 0, suggestion: 1, important: 2, blocking: 3 }
@@ -122,7 +126,9 @@ function render(input) {
   for (const [k, label] of [['regression', 'Regression vs base'], ['e2e', 'End-to-end'], ['tests', 'Tests']]) {
     if (checks[k].result === 'Not run') notVerified.push(`${label}: not run${checks[k].notes ? ` — ${checks[k].notes}` : ''}`)
   }
-  if (checks.proof.result === 'Not produced') notVerified.push(`Proof: not produced${checks.proof.notes ? ` — ${checks.proof.notes}` : ''}`)
+  if (['Not produced', 'Not run'].includes(checks.proof.result)) {
+    notVerified.push(`Proof: ${checks.proof.result.toLowerCase()}${checks.proof.notes ? ` — ${checks.proof.notes}` : ''}`)
+  }
   for (const r of reviewersNotRun) notVerified.push(`Reviewer \`${r}\` did not return; its lenses were not covered.`)
   for (const a of input.invalidAgents || []) notVerified.push(`Agent \`${a}\` returned an unreadable answer and counts as not run.`)
 
@@ -164,7 +170,18 @@ function render(input) {
   row('Feature-flag gating', 'flagGate')
   out('')
   out('### 📸 Proof')
-  out(input.proof ? input.proof : 'None')
+  const shots = input.screenshots || []
+  if (shots.length) {
+    out('| Page | Before | After |')
+    out('|---|---|---|')
+    for (const s of shots) {
+      const label = `\`${cell(s.route)}\`${s.changed ? '' : ' · unchanged'}`
+      out(`| ${label} | <img src="${s.before}" width="400" alt="${cell(s.route)} before"> | <img src="${s.after}" width="400" alt="${cell(s.route)} after"> |`)
+    }
+    if (input.proof) out('')
+  }
+  if (input.proof) out(input.proof)
+  if (!shots.length && !input.proof) out('None')
   out('')
   if (input.prior) {
     const priorIds = Object.keys(priorById)
@@ -235,13 +252,24 @@ function baseStatus(s) {
   return STATUSES.find(v => v === t) || (t.startsWith('Open') ? 'Open' : 'Open')
 }
 
-module.exports = { render }
+// The installed version, from the plugin manifest (node resolves the skill's
+// symlink, so this finds the repo the skill lives in).
+function installedVersion() {
+  try {
+    const manifest = require('path').resolve(__dirname, '..', '..', '..', '.claude-plugin', 'plugin.json')
+    return JSON.parse(fs.readFileSync(manifest, 'utf8')).version || 'unknown'
+  } catch { return 'unknown' }
+}
+
+module.exports = { render, installedVersion }
 
 if (require.main === module) {
   const file = process.argv[2]
   if (!file) { process.stderr.write('usage: render-report.js <input.json>\n'); process.exit(1) }
   try {
-    const { markdown, verdict } = render(JSON.parse(fs.readFileSync(file, 'utf8')))
+    const input = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (!input.skillVersion) input.skillVersion = installedVersion()
+    const { markdown, verdict } = render(input)
     process.stdout.write(markdown)
     process.stderr.write(`verdict: ${verdict}\n`)
   } catch (e) {

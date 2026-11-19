@@ -32,6 +32,9 @@
 // args (verify):
 //   findings        findings to re-check (id, file, line, claim, intended, observed, failureCase)
 //   fixDiffPath     optional absolute path of the combined fix diff
+//
+// args (image-check):
+//   images          [{ path, what }] — absolute paths of screenshots about to be published
 
 export const meta = {
   name: 'pr-self-review',
@@ -40,7 +43,8 @@ export const meta = {
     { title: 'Brief', detail: 'Draft the intent brief' },
     { title: 'Review', detail: 'Reviewers in parallel over the partitioned diff' },
     { title: 'Skeptic', detail: 'One skeptic per Blocking / Important finding' },
-    { title: 'Verify fixes', detail: 'Fresh agent per fixed finding' }
+    { title: 'Verify fixes', detail: 'Fresh agent per fixed finding' },
+    { title: 'Image check', detail: 'Fresh agent per screenshot, before it is published' }
   ]
 }
 
@@ -345,6 +349,7 @@ Read these files in ${workDir} (skip any that do not exist):
 - diffstat.txt and files-prod.txt, files-test.txt — what changed
 - full.diff — consult it wherever the description leaves a file unexplained
 - conventions.txt — repo convention files worth reading
+- classify.json — a first guess at each file's tier and kind from paths and import counts
 
 Produce:
 - purpose: what the PR is for, in one sentence.
@@ -355,7 +360,7 @@ Produce:
     Shared — utilities, hooks, shared components, anything imported from several places (search for importers; high fan-in is Shared at least, whatever the folder is called).
     Leaf — presentational components, copy, styling, a single screen or route.
     Inert — docs, comments, non-shipping config. Tests are never Inert: a test file takes the tier of the code it tests.
-    If ${repoRoot}/.self-review/config.yml maps paths to tiers, it wins. When unsure, choose the higher tier.
+    Start from classify.json when it exists. Where you choose a different tier or kind, the reason must say what the guess missed. Entries marked "binding" come from the repo's config and stand as given. When unsure, choose the higher tier.
 - unexplained: files or hunks that nothing in the title, body, commits or ticket accounts for. Leave empty when everything is accounted for.
 - description: "sufficient", or "needs writing" when the PR body is empty or too vague to review against.
 - flagGate: required=true ONLY when the ticket or PR body itself asks for the work to be behind a feature flag ("behind a flag", "gated by <flag>", "dark launch", a named flag). Quote that sentence in source and name the flag if one is named. Otherwise required=false. A change merely lacking a flag is not a reason.
@@ -509,6 +514,61 @@ if (mode === 'verify') {
   }
 
   return { mode, resolution, introduced, fixDiffReviewed }
+}
+
+// ---------------------------------------------------------------------------
+// Mode: image-check
+// ---------------------------------------------------------------------------
+
+if (mode === 'image-check') {
+  phase('Image check')
+  const IMAGE_SCHEMA = {
+    type: 'object',
+    properties: {
+      images: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            number: { type: 'number', description: 'The image number as listed' },
+            verdict: { type: 'string', enum: ['clean', 'sensitive', 'unsure'] },
+            details: { type: 'string', description: 'What sensitive content is visible and where, or why it is unclear' }
+          },
+          required: ['number', 'verdict', 'details']
+        }
+      }
+    },
+    required: ['images']
+  }
+  // One agent looks at up to six images: the check is narrow and per-agent
+  // overhead is most of the cost.
+  const PER_AGENT = 6
+  const images = A.images || []
+  const batches = []
+  for (let i = 0; i < images.length; i += PER_AGENT) batches.push(images.slice(i, i + PER_AGENT).map((img, j) => ({ ...img, number: i + j + 1 })))
+  const answers = settled(await parallel(batches.map((batch, b) => () => agent(
+    `You are checking screenshots before they are published in a pull request comment, possibly on a public repository.
+
+Open each image with the Read tool and look at all of it:
+${batch.map(img => `${img.number}. ${img.path}${img.what ? ` — ${img.what}` : ''}`).join('\n')}
+
+For each, report whether any of this is visible: passwords, API keys, tokens, cookies or other credentials; real personal data (names, email addresses, phone numbers, postal addresses, payment or ID numbers) that is not obviously placeholder data; internal hostnames, IP addresses or file paths that name a person; private messages or documents.
+
+One verdict per image, by its number:
+- clean — nothing of the kind is visible.
+- sensitive — say what and where.
+- unsure — say what you could not judge (unreadable text, cropped content).
+Do not edit or create files other than your answer.`,
+    { label: `images:${b + 1}`, phase: 'Image check', agentType: 'general-purpose', schema: IMAGE_SCHEMA }))))
+  // Only "clean" is publishable; a missing or failed check is not a clean one.
+  const byNumber = {}
+  answers.forEach(a => { for (const r of (a && a.images) || []) byNumber[r.number] = r })
+  const results = images.map((img, i) => {
+    const a = byNumber[i + 1]
+    const verdict = a && ['clean', 'sensitive', 'unsure'].includes(a.verdict) ? a.verdict : 'unsure'
+    return { path: img.path, verdict, details: a ? text(a.details) : 'The image check did not return a verdict for this image.', publish: verdict === 'clean' }
+  })
+  return { mode, images: results, withheld: results.filter(r => !r.publish).length }
 }
 
 // ---------------------------------------------------------------------------

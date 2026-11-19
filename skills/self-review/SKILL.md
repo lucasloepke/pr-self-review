@@ -14,7 +14,7 @@ something. A run with no Blocking or Important findings is a normal,
 successful result — say so plainly.
 
 ```
-/self-review [<pr>] [--dont-stop] [--update] [--dry-run] [--brief <file>]
+/self-review [<pr>] [--dont-stop] [--update] [--dry-run] [--screenshots] [--brief <file>]
              [--description <file>] [--issue <file>]
 ```
 
@@ -24,6 +24,7 @@ successful result — say so plainly.
 | `--dont-stop` | One stop: intent. Then fixes and finishes without pausing |
 | `--update` | After new pushes: re-verify open findings, review only new hunks |
 | `--dry-run` | Everything runs; the report is written to a file. No commit, push or post. Works with no PR |
+| `--screenshots` | For visual changes: start the app on base and head, capture before/after screenshots, publish them to a `self-review-assets` branch. Off by default |
 | `--brief <file>` | A pre-confirmed brief (JSON); the intent stop is skipped |
 | `--description <file>` | Branch with no PR only: the would-be PR title (first line) and body. Passed to `gather.sh` |
 | `--issue <file>` | The linked ticket, same format, when it is not on GitHub. Passed to `gather.sh` |
@@ -82,13 +83,25 @@ part of the review. If `pr: none` and this is not a dry run, the draft PR is
 opened at the intent stop (phase 2), not before. If `prior-state.json` exists,
 load it: its `findings` are passed to the review as `priorFindings`.
 
+Then, in the repo root:
+
+```bash
+node <skill>/scripts/classify.js --repo . --work <work>        # tier + kind guesses → classify.json
+node <skill>/scripts/scan.js --repo . --work <work>            # scanner leads
+node <skill>/scripts/suppressions.js list --repo .             # the repo's learned suppressions
+```
+
+Keep `scan.js`'s `leads` and the suppression list for phase 4. Tier rules and
+the proof each change kind owes are in `<skill>/depth-and-proof.md`.
+
 ## 2. Confirm intent — the stop both modes share
 
 With `--brief <file>`, use that brief and go to phase 3.
 
 Otherwise run the workflow with
 `{mode: "brief", repoRoot, workDir, skillDir}` and show the author the brief:
-purpose, acceptance criteria, out of scope, each area's tier and why,
+purpose, acceptance criteria, out of scope, each area's tier and why (the
+brief starts from `classify.json`; tiers from the repo's config are binding),
 unexplained changes, whether a feature flag was asked for. Ask them to
 confirm or correct it. At this same stop, settle everything else that needs a
 yes before the review can start:
@@ -108,22 +121,61 @@ highest tier among its areas.
 Never raise the absence of a feature flag otherwise; the report row then reads
 `Not required`.
 
-## 3. Tests
+## 3. Tests, regression and proof
 
-- `ci: current` → read `checks.json`; do not re-run what CI ran on this commit.
-- `ci: stale` or `none` → find the project's test, lint, typecheck and build
-  commands (package scripts, Makefile, CI config, CLAUDE.md) and run them once.
-- **Red** is the first Blocking finding. Default mode: stop and offer to
-  diagnose; the author may proceed on red, and the report records that they
-  did. Don't-stop mode: record it and continue. Pending → continue; the report
-  says so.
+Find the project's test, lint, typecheck and build commands (package scripts,
+Makefile, CI config, CLAUDE.md). Then run them through `run-checks.js`, which
+re-runs failures (flaky), compares what still fails with the base
+(regression or pre-existing) and produces behaviour proof:
 
-Save any scanner or test output worth a reviewer's attention into `<work>` and
-pass the file names as `leads`.
+```bash
+node <skill>/scripts/run-checks.js --repo . --out <work>/checks --base <baseSha> \
+  --cmd "<test command>" [--cmd "<lint command>" …] \
+  --proof-tests <work>/files-test.txt --test-diff <work>/test.diff
+```
 
-Not built in this version — report `Regression vs base`, `End-to-end` as
-`Not run` and `Proof` as `Not produced`, each with the note
-"not supported by skill v0.1". The verdict rule then applies as written.
+- `ci: current` and green → report the Tests row from CI (`CI @ <sha>`); run
+  `run-checks.js` with the test command only, for its Regression and Proof
+  rows. `ci: current` and red → run it too, to tell regressions from
+  pre-existing and flaky failures. `ci: stale` or `none` → run it with every
+  command; all three rows come from its `rows`.
+- **Red** — `rows.tests.result` is `Fail`: failures that are new on the head —
+  is the first Blocking finding. Default mode: stop and offer to diagnose; the
+  author may proceed on red, and the report records that they did. Don't-stop
+  mode: record it and continue. CI pending → continue; the report says so.
+  Pre-existing and flaky failures are noted, never Blocking for this PR.
+- **Proof** follows the change kinds in the confirmed brief
+  (`depth-and-proof.md`): behaviour, API/CLI or refactor → `rows.proof` and
+  `proofMarkdown` (the report's Proof section). Visual → screenshots, below,
+  with `--screenshots`; without it, Proof `Not run`, "screenshots are off (run
+  with --screenshots)", which does not cap the verdict. Performance → the
+  measurement before and after, by hand. Only inert → `Not required`.
+- **Screenshots — only with `--screenshots`.** Without the flag, do not start
+  the app, capture, or push an assets branch. With it, for visual changes: pick the start command (package
+  scripts `dev` / `start`, README, CLAUDE.md) and the pages — every page the
+  acceptance criteria name, plus pages that render the changed components or
+  styles (a shared stylesheet means the main pages, not just the one the PR is
+  about). Then:
+
+  ```bash
+  node <skill>/scripts/capture.js --repo . --base <baseSha> --out <work>/shots \
+    --start "<start command>" --routes /a,/b [--port-env PORT]
+  ```
+
+  A page marked `changed` that the PR is not meant to touch is a lead: add it
+  to the leads and look at the image yourself. Before anything is published,
+  run the workflow in `image-check` mode on every image; only `publish: true`
+  images go further. Not a dry run →
+  `bash <skill>/scripts/publish-assets.sh <pr> <headSha> <images…>` and use
+  each file's `url`; dry run → use the local paths. Pass
+  `screenshots: [{route, before, after, changed}]` to the report. `notRun`
+  (no Chrome, the app would not start) → Proof `Not run` with that reason.
+- `proof.passOnBase` lists changed tests that pass on the base too. If it is
+  not empty, write it to `<work>/leads/pass-on-base.json` and add that to the
+  leads: such tests may not test the change.
+
+End-to-end through the running app is not built yet: report it `Not run`,
+"not supported yet".
 
 ## 4. Review and skeptic
 
@@ -133,6 +185,9 @@ Run the workflow with:
 {mode: "review", repoRoot, workDir, skillDir, brief, tier, changedLines,
  dontStop, conventions, leads, suppressions, priorFindings}
 ```
+
+`leads` are the paths from `scan.js` plus `leads/pass-on-base.json` when it
+exists; `suppressions` is the list from `suppressions.js list`.
 
 It returns `findings` (already checked by a skeptic where one was owed),
 `collapsed`, `rejected`, `carried`, `suppressed`, `discarded`, `reviewers` and
@@ -152,6 +207,12 @@ case in plain language, with the skeptic's verdict.
   or follow-up link when there is one) or **Decline** (a reason). If a decline
   does not answer the failure case, say so once, then record the answer as
   given. Offer Suggestions and Nits as one group to take or skip.
+- After a **Decline** of an Important, Suggestion or Nit finding, ask once:
+  "Stop raising this kind of finding in this repo?" On a yes, describe the
+  kind in a sentence (not the single instance) and run
+  `node <skill>/scripts/suppressions.js add --repo . --pattern "<kind>" --reason "<their reason>"`.
+  The changed `.self-review/suppressions.yml` is committed with the fixes.
+  Never offer this for a Blocking finding.
 
 **Don't-stop mode** → no question. Fix every finding the skeptic confirmed or
 reduced, at Blocking, Important or Suggestion, that has a clear fix.
@@ -204,10 +265,19 @@ The renderer applies `report-template.md` — section order, vocabulary,
 verdict rule, state block — and prints the verdict. It refuses a status or
 check result outside the vocabulary. Do not write or edit the report by hand.
 
-Before showing or posting, read the rendered report for secrets and personal
-data (tokens, keys, cookies, auth headers, `.env` values, emails, home paths).
-Mask them in `report-input.json`, add what was withheld to `notVerified`, and
-render again.
+**Redaction, before anything is shown or posted:**
+
+```bash
+node <skill>/scripts/redact.js mask <work>/report-input.json
+```
+
+It masks secrets and personal data (tokens, keys, cookies, auth headers,
+secret assignments, emails, home paths) in place and prints what it masked.
+If `total` is above 0, add "N items masked as possible secrets or personal
+data (<kinds>)" to `notVerified` and render again. `post-report.sh` masks the
+posted copy once more as a safety net. Screenshots, when there are any, go
+through the workflow's `image-check` mode first; only `publish: true` images
+are published, and each withheld one is listed under `notVerified`.
 
 - **`--dry-run`:** stop here. Tell the author where `report.md` is and that
   the fixes are uncommitted in the working tree.
@@ -215,9 +285,7 @@ render again.
   On a yes: one commit per finding (message names the finding id), push, add
   each commit to its decision and render again, then
   `bash <skill>/scripts/post-report.sh <pr> <work>/report.md`.
-- **Don't-stop mode:** if `<skill>/scripts/redact.sh` exists, commit, push
-  and post as above without asking. If it does not exist, finish as a dry run
-  and say that unattended posting is unavailable until redaction is.
+- **Don't-stop mode:** commit, push and post as above without asking.
 
 `post-report.sh` edits the existing self-review comment when there is one.
 Never post with `gh pr comment` directly.
@@ -249,4 +317,8 @@ Never post with `gh pr comment` directly.
 | Marking a finding fixed because you fixed it | Only a verifier's `resolved` makes it `Fixed` |
 | Committing or pushing in default mode before the go-ahead | Working tree only until the author says yes |
 | Dropping the Proof or End-to-end row because it did not run | `Not run` / `Not produced`, with the reason |
+| Calling a failure the PR's when it also fails on the base | `run-checks.js` decides: regression, pre-existing or flaky |
+| Counting changed tests as proof without running them on the base | Proof is what fails on the base and passes on the head |
 | Posting a second comment | `post-report.sh` edits the existing one |
+| Showing the author a report before redaction | `redact.js mask` on `report-input.json`, then render |
+| Offering to suppress a Blocking finding | Suppressions are for Important and below |

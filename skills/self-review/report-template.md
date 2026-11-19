@@ -43,7 +43,9 @@ together, and keep `test/render-report.test.js` passing.
 1. **Not ready** — any Blocking finding is `Open`, or tests are red.
 2. **Ready with open items** — any Blocking or Important finding is open,
    deferred or declined; or tests are pending or were not run; or owed proof
-   was not produced; or a reviewer did not return, so its lenses went
+   was not produced (`Not produced` — proof this version can make, which did
+   not come out; `Not run` — a kind it cannot make yet, such as screenshots,
+   does not cap); or a reviewer did not return, so its lenses went
    unchecked.
 3. **Ready for review** — otherwise, regardless of Suggestions and Nits.
 
@@ -91,7 +93,7 @@ state will be raised again.
 | Regression vs base | ✅ Pass / ❌ Fail / ⏭️ Not run | <flaky, pre-existing> |
 | End-to-end | ✅ Pass / ❌ Fail / ⏭️ Not run | |
 | Review | 🤖 <n> reviewers, <n> raised, <n> confirmed, <n> rejected, <n> suppressed | |
-| Proof | ✅ Provided / ⚠️ Not produced | |
+| Proof | ✅ Provided / ⚠️ Not produced / ⏭️ Not run / ➖ Not required | |
 | Feature-flag gating | ✅ Pass / ❌ Fail / ➖ Not required | <flag name> |
 
 ### 📸 Proof
