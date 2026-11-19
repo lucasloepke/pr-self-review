@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Scores self-review runs on one fixture branch against eval/expected.json.
+// Scores preflight runs on one fixture branch against eval/expected.json.
 //
 //   node eval/score.js <branch> [--review <result.json>]... [--brief <result.json>]...
 //                      [--skeptic <result.json>]... [--key <expected.json>]

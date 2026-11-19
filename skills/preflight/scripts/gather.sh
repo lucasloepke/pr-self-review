@@ -8,7 +8,7 @@
 #   <pr-number>   review that PR (its branch must be checked out); default: the
 #                 PR of the current branch, or the bare branch when it has none
 #   --since <sha> diff from <sha> instead of the merge base (used by --update)
-#   --out <dir>   where to write; default: <git-dir>/pr-self-review
+#   --out <dir>   where to write; default: <git-dir>/preflight
 #   --description <file>  no PR only: the would-be PR title (first line, a
 #                 leading "# " is dropped) and body (the rest)
 #   --issue <file>  the linked ticket, same format; overrides the PR's link
@@ -54,7 +54,7 @@ text_to_json() { # <file> <extra-json-fields>
 
 ROOT=$(git rev-parse --show-toplevel) || die "not inside a git repository"
 cd "$ROOT"
-OUT=${OUT:-$(git rev-parse --absolute-git-dir)/pr-self-review}
+OUT=${OUT:-$(git rev-parse --absolute-git-dir)/preflight}
 mkdir -p "$OUT"
 for f in meta.txt pr.json issue.json checks.json prior-state.json commits.txt diffstat.txt \
          files-prod.txt files-test.txt full.diff prod.diff test.diff conventions.txt; do
@@ -63,7 +63,8 @@ done
 
 BRANCH=$(git branch --show-current)
 HEAD_SHA=$(git rev-parse HEAD)
-MARKER='<!-- pr-self-review -->'
+MARKER='<!-- preflight -->'
+LEGACY_MARKER='<!-- pr-self-review -->'   # reports written before the rename
 
 # --- PR -----------------------------------------------------------------------
 NUMBER="" BASE="" PUSHED_SHA="" PR_STATE=""
@@ -122,7 +123,7 @@ CHANGED_LINES=$(git diff --numstat "$FROM" HEAD | awk '{n += $1 + $2} END {print
 
 # --- Repo conventions ---------------------------------------------------------
 for f in CLAUDE.md AGENTS.md CONTRIBUTING.md .github/pull_request_template.md .github/PULL_REQUEST_TEMPLATE.md \
-         .self-review/config.yml .self-review/suppressions.yml; do
+         .preflight/config.yml .preflight/suppressions.yml; do
   [[ -f "$f" ]] && echo "$f" >>"$OUT/conventions.txt"
 done
 
@@ -138,10 +139,10 @@ if [[ -n "$NUMBER" ]]; then
   fi
 
   PRIOR_COMMENT=$(gh api "repos/{owner}/{repo}/issues/$NUMBER/comments" --paginate \
-    --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" 2>/dev/null | tail -1 || true)
+    --jq ".[] | select(.body | contains(\"$MARKER\") or contains(\"$LEGACY_MARKER\")) | .id" 2>/dev/null | tail -1 || true)
   if [[ -n "$PRIOR_COMMENT" ]]; then
     gh api "repos/{owner}/{repo}/issues/comments/$PRIOR_COMMENT" \
-      --jq '.body | gsub("\r\n"; "\n") | (split("<!-- pr-self-review:state v1\n")[1] // "") | (split("\n-->")[0] // empty)' \
+      --jq '.body | gsub("\r\n"; "\n") | ((split("<!-- preflight:state v1\n")[1]) // (split("<!-- pr-self-review:state v1\n")[1]) // "") | (split("\n-->")[0] // empty)' \
       >"$OUT/prior-state.json" 2>/dev/null || true
     grep -q '{' "$OUT/prior-state.json" 2>/dev/null || rm -f "$OUT/prior-state.json"
   fi

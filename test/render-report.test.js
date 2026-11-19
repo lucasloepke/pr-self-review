@@ -1,7 +1,7 @@
 // The report renderer: verdict rule, closed vocabulary, sections, state block.
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { render } = require('../skills/self-review/scripts/render-report.js')
+const { render } = require('../skills/preflight/scripts/render-report.js')
 
 const f = (id, severity, over) => ({
   id, severity, lens: 'correctness', file: 'src/a.js', line: 4, claim: `claim ${id} with a | pipe`,
@@ -28,7 +28,7 @@ test('clean run: Ready for review, says so plainly', () => {
   const { markdown, verdict } = render(input())
   assert.equal(verdict, 'Ready for review')
   assert.match(markdown, /No blocking or important findings\./)
-  assert.ok(markdown.startsWith('<!-- pr-self-review -->\n'))
+  assert.ok(markdown.startsWith('<!-- preflight -->\n'))
   assert.ok(markdown.endsWith('\n-->\n'))
   assert.doesNotMatch(markdown, /Changes since the last run/)
 })
@@ -93,7 +93,7 @@ test('statuses and check results outside the vocabulary are refused', () => {
 
 test('state block parses, holds every finding, and contains no raw ">"', () => {
   const { markdown } = render(withFindings([f('F-1', 'blocking'), f('F-2', 'suggestion')], { 'F-1': { status: 'Declined', reason: 'by design -->' } }))
-  const json = markdown.split('<!-- pr-self-review:state v1\n')[1].split('\n-->')[0]
+  const json = markdown.split('<!-- preflight:state v1\n')[1].split('\n-->')[0]
   assert.doesNotMatch(json, />/)
   const state = JSON.parse(json)
   assert.deepEqual(state.findings.map(x => [x.id, x.status]), [['F-1', 'Declined'], ['F-2', 'Open']])
@@ -129,7 +129,7 @@ test('prior findings not raised this run stay on the record and in the state', (
   ] }
   const { markdown, verdict } = render(input({ prior, review: { ...input().review, findings: [f('F-9', 'important')] },
     decisions: { 'F-1': { status: 'Fixed', commit: 'abcdef0123', evidence: 're-verified after push' }, 'F-9': { status: 'Deferred', reason: 'next PR' } } }))
-  const state = JSON.parse(markdown.split('<!-- pr-self-review:state v1\n')[1].split('\n-->')[0])
+  const state = JSON.parse(markdown.split('<!-- preflight:state v1\n')[1].split('\n-->')[0])
   assert.deepEqual(state.findings.map(x => [x.id, x.status]).sort(), [['F-1', 'Fixed in abcdef0123'], ['F-2', 'Open'], ['F-3', 'Deferred'], ['F-9', 'Deferred']])
   assert.match(markdown, /\| F-1 \| 🔴 Blocking .* ✅ Fixed in `abcdef0` — re-verified after push \|/)
   assert.match(markdown, /- Newly raised: F-9/)
@@ -145,6 +145,6 @@ test('emojis mark verdict, severity, results and status; the state block stays p
   assert.match(markdown, /\| F-2 \| 🟠 Important .* \| 🔓 Open \|/)
   assert.match(markdown, /\| End-to-end \| ⏭️ Not run \|/)
   assert.match(markdown, /a works — ✅ covered/)
-  const state = markdown.split('<!-- pr-self-review:state v1\n')[1]
+  const state = markdown.split('<!-- preflight:state v1\n')[1]
   assert.doesNotMatch(state, /[🔴🟠🔵⚪✅🔓📌🚫🎯]/u)
 })

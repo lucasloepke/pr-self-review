@@ -149,8 +149,8 @@ function render(input) {
 
   const lines = []
   const out = s => lines.push(s)
-  out('<!-- pr-self-review -->')
-  out('## 🔍 Self-review report')
+  out('<!-- preflight -->')
+  out('## 🛫 Preflight report')
   out('')
   out(`**Verdict:** ${VERDICT_ICON[verdict]} ${verdict}`)
   out(`**Reviewed:** \`${(input.headSha || '').slice(0, 7)}\` (base \`${(input.baseSha || '').slice(0, 7)}\`) · ${input.date} · ${input.mode === 'dont-stop' ? "don't-stop" : 'default'} mode · skill v${input.skillVersion}${input.dryRun ? ' · dry run' : ''}`)
@@ -249,7 +249,7 @@ function render(input) {
     })),
     rejected: (review.rejected || []).map(f => ({ id: f.id, file: f.file, line: f.line, severity: f.severity, claim: f.claim, reason: f.skepticReason }))
   }
-  out('<!-- pr-self-review:state v1')
+  out('<!-- preflight:state v1')
   out(JSON.stringify(state).replace(/>/g, '\\u003e'))
   out('-->')
   return { markdown: `${lines.join('\n')}\n`, verdict }

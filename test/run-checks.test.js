@@ -5,7 +5,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
-const { main, parseFailures } = require('../skills/self-review/scripts/run-checks.js')
+const { main, parseFailures } = require('../skills/preflight/scripts/run-checks.js')
 
 const tmp = () => fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'psr-chk-')))
 
@@ -104,7 +104,7 @@ test('proof: changed tests that also pass on the base prove nothing, and are nam
 })
 
 test('a changed test is named by its exact title or its definition', () => {
-  const { namedIn } = require('../skills/self-review/scripts/run-checks.js')
+  const { namedIn } = require('../skills/preflight/scripts/run-checks.js')
   const added = "+test('add more', () => {})\n+test('add', () => {})\n+def test_total():\n+func TestSum(t *testing.T) {"
   assert.equal(namedIn(added, 'add'), true)
   assert.equal(namedIn("+test('add more', () => {})", 'add'), false)
@@ -114,6 +114,6 @@ test('a changed test is named by its exact title or its definition', () => {
 })
 
 test('parsePasses reads TAP, spec, jest and go output', () => {
-  const { parsePasses } = require('../skills/self-review/scripts/run-checks.js')
+  const { parsePasses } = require('../skills/preflight/scripts/run-checks.js')
   assert.deepEqual(parsePasses('ok 1 - a\nnot ok 2 - b\n✔ c (1ms)\n  ✓ d (3 ms)\n--- PASS: TestE (0.00s)\n').sort(), ['TestE', 'a', 'c', 'd'])
 })

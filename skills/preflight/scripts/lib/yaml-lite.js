@@ -1,4 +1,4 @@
-// A small YAML subset, enough for .self-review/config.yml and
+// A small YAML subset, enough for .preflight/config.yml and
 // suppressions.yml without a dependency: nested maps, lists of scalars, lists
 // of maps, quoted and plain scalars, flow lists like [a, "b"], and comments.
 // Anchors, multi-line strings and flow maps are not supported and throw.

@@ -6,7 +6,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
-const DRIVER = path.join(__dirname, '../skills/self-review/scripts/run-workflow.js')
+const DRIVER = path.join(__dirname, '../skills/preflight/scripts/run-workflow.js')
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'psr-drv-'))
 
 function setup(extra = {}) {

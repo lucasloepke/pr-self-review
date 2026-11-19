@@ -4,13 +4,13 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execFileSync } = require('node:child_process')
-const { main, glob } = require('../skills/self-review/scripts/classify.js')
+const { main, glob } = require('../skills/preflight/scripts/classify.js')
 
 function setup(files, changedProd, changedTests = [], config = null) {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'psr-cls-'))
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'psr-clsw-'))
   for (const [f, s] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(repo, f)), { recursive: true }); fs.writeFileSync(path.join(repo, f), s) }
-  if (config) { fs.mkdirSync(path.join(repo, '.self-review'), { recursive: true }); fs.writeFileSync(path.join(repo, '.self-review/config.yml'), config) }
+  if (config) { fs.mkdirSync(path.join(repo, '.preflight'), { recursive: true }); fs.writeFileSync(path.join(repo, '.preflight/config.yml'), config) }
   execFileSync('git', ['init', '-q'], { cwd: repo }); execFileSync('git', ['add', '-A'], { cwd: repo })
   fs.writeFileSync(path.join(work, 'files-prod.txt'), changedProd.join('\n'))
   fs.writeFileSync(path.join(work, 'files-test.txt'), changedTests.join('\n'))

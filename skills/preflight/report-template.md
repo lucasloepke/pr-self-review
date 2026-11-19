@@ -9,7 +9,7 @@ together, and keep `test/render-report.test.js` passing.
 
 ## Rendering rules
 
-- Line 1 is exactly `<!-- pr-self-review -->`. The last line is exactly `-->`,
+- Line 1 is exactly `<!-- preflight -->`. The last line is exactly `-->`,
   closing the state block. `scripts/post-report.sh` refuses anything else.
 - Severity in tables: `Blocking`, `Important`, `Suggestion`, `Nit`.
 - Skeptic column: `Confirmed`, `Reduced`, `Unproven`, or `—` when the finding
@@ -54,7 +54,7 @@ at *Not ready*, but is listed first under *Decisions worth a second opinion*.
 
 ## State block
 
-One JSON object, on the lines between `<!-- pr-self-review:state v1` and
+One JSON object, on the lines between `<!-- preflight:state v1` and
 `-->`. Severities lower-case (`blocking`); `status` uses the status vocabulary
 above; `skeptic` is `confirmed`, `reduced`, `unproven` or `skipped`. Write
 every `>` inside the JSON as `>` so no string can close the comment
@@ -73,8 +73,8 @@ state will be raised again.
 ## Template
 
 ```markdown
-<!-- pr-self-review -->
-## 🔍 Self-review report
+<!-- preflight -->
+## 🛫 Preflight report
 
 **Verdict:** ✅ Ready for review | 🟡 Ready with open items | ⛔ Not ready
 **Reviewed:** `<head sha>` (base `<base sha>`) · <date> · <default | don't-stop> mode · skill v<version>
@@ -133,7 +133,7 @@ non-visual proof goes in a collapsed block>
 ➕ **Changes beyond the description:** <unexplained changes the author kept>
 <details><summary>💡 Suggestions and nits not taken (<n>)</summary> … </details>
 
-<!-- pr-self-review:state v1
+<!-- preflight:state v1
 <state JSON>
 -->
 ```

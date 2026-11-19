@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { redact, scan } = require('../skills/self-review/scripts/redact.js')
+const { redact, scan } = require('../skills/preflight/scripts/redact.js')
 
 const masked = (input, kind) => {
   const r = redact(input)

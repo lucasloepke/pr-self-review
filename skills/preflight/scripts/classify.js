@@ -2,7 +2,7 @@
 // A first guess at each changed file's review tier and change kind, from the
 // repo's config, path patterns and fan-in (how many files import it). The
 // brief agent starts from this and says where it differs; tiers that come
-// from .self-review/config.yml are binding. Rules: depth-and-proof.md.
+// from .preflight/config.yml are binding. Rules: depth-and-proof.md.
 //
 //   node classify.js --repo <root> --work <workDir>
 //
@@ -96,7 +96,7 @@ function main(argv) {
   const prod = list('files-prod.txt'), tests = list('files-test.txt')
 
   let config = {}
-  const configFile = path.join(repo, '.self-review', 'config.yml')
+  const configFile = path.join(repo, '.preflight', 'config.yml')
   if (fs.existsSync(configFile)) config = yaml.parse(fs.readFileSync(configFile, 'utf8')) || {}
   const fanInShared = Number(config.fanInShared) > 0 ? Number(config.fanInShared) : 2
   const configTiers = []

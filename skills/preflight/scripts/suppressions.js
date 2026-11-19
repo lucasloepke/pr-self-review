@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The repo's learned suppressions: findings the author declined and asked
-// not to see again. Kept in .self-review/suppressions.yml, committed with the
+// not to see again. Kept in .preflight/suppressions.yml, committed with the
 // repo so it is reviewable and shared.
 //
 //   node suppressions.js list --repo <root>
@@ -16,14 +16,14 @@ const path = require('path')
 const { spawnSync } = require('child_process')
 const yaml = require('./lib/yaml-lite.js')
 
-const HEADER = `# Learned suppressions for /self-review.
+const HEADER = `# Learned suppressions for /preflight.
 # Each entry is a kind of finding the authors declined and asked not to see
 # again. Reviewers skip findings that match and count them in the report.
 # Suppressions never apply to Blocking findings. Edit or delete freely.
 `
 
 function load(repo) {
-  const file = path.join(repo, '.self-review', 'suppressions.yml')
+  const file = path.join(repo, '.preflight', 'suppressions.yml')
   if (!fs.existsSync(file)) return { file, items: [] }
   const doc = yaml.parse(fs.readFileSync(file, 'utf8')) || {}
   const items = Array.isArray(doc.suppressions) ? doc.suppressions : []
