@@ -1,0 +1,12 @@
+{
+  "name": "pr-self-review",
+  "version": "0.2.0",
+  "description": "Self-review your own pull request before a human does: confirm intent, run checks against the base, have independent reviewers and a skeptic try to break it, fix what survives, and post one report comment.",
+  "author": {
+    "name": "Lucas Loepke",
+    "url": "https://github.com/lucasloepke"
+  },
+  "homepage": "https://github.com/lucasloepke/pr-self-review",
+  "repository": "https://github.com/lucasloepke/pr-self-review",
+  "keywords": ["code-review", "pull-request", "self-review", "github", "testing"]
+}

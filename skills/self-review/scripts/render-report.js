@@ -7,7 +7,7 @@
 //
 // input.json:
 // {
-//   "skillVersion": "0.1.0", "date": "2026-11-18", "mode": "default" | "dont-stop", "dryRun": false,
+//   "skillVersion": optional, defaults to .claude-plugin/plugin.json's version, "date": "2026-11-18", "mode": "default" | "dont-stop", "dryRun": false,
 //   "headSha": "…", "baseSha": "…", "tier": "Shared", "tierReason": "one line",
 //   "brief": { confirmed brief },
 //   "coverage": { "<acceptance criterion>": "covered" | "uncovered" },        optional
@@ -239,13 +239,24 @@ function baseStatus(s) {
   return STATUSES.find(v => v === t) || (t.startsWith('Open') ? 'Open' : 'Open')
 }
 
-module.exports = { render }
+// The installed version, from the plugin manifest (node resolves the skill's
+// symlink, so this finds the repo the skill lives in).
+function installedVersion() {
+  try {
+    const manifest = require('path').resolve(__dirname, '..', '..', '..', '.claude-plugin', 'plugin.json')
+    return JSON.parse(fs.readFileSync(manifest, 'utf8')).version || 'unknown'
+  } catch { return 'unknown' }
+}
+
+module.exports = { render, installedVersion }
 
 if (require.main === module) {
   const file = process.argv[2]
   if (!file) { process.stderr.write('usage: render-report.js <input.json>\n'); process.exit(1) }
   try {
-    const { markdown, verdict } = render(JSON.parse(fs.readFileSync(file, 'utf8')))
+    const input = JSON.parse(fs.readFileSync(file, 'utf8'))
+    if (!input.skillVersion) input.skillVersion = installedVersion()
+    const { markdown, verdict } = render(input)
     process.stdout.write(markdown)
     process.stderr.write(`verdict: ${verdict}\n`)
   } catch (e) {
