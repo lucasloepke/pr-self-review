@@ -283,7 +283,8 @@ are published, and each withheld one is listed under `notVerified`.
   the fixes are uncommitted in the working tree.
 - **Default mode:** show the fix diff and the rendered comment, and ask once.
   On a yes: one commit per finding (message names the finding id), push, add
-  each commit to its decision and render again, then
+  each commit to its decision, set `headSha` to the new head (the fixes were
+  verified, so the next `--update` starts after them) and render again, then
   `bash <skill>/scripts/post-report.sh <pr> <work>/report.md`.
 - **Don't-stop mode:** commit, push and post as above without asking.
 
@@ -293,9 +294,11 @@ Never post with `gh pr comment` directly.
 ## `--update`
 
 1. Phase 1, then load `prior-state.json`. With no prior state, do a full run.
-2. Re-verify every prior finding whose status is `Open` or `Fixed` with the
-   workflow's `verify` mode (no `fixDiffPath`) — fixed ones too, since what
-   was pushed may differ from what was verified.
+2. Re-verify every prior Blocking and Important finding whose status is
+   `Open` or `Fixed` with the workflow's `verify` mode (no `fixDiffPath`) —
+   fixed ones too, since what was pushed may differ from what was verified.
+   Prior Suggestions and Nits are not re-verified: they were raised once and
+   come back under `carried`.
 3. Re-run `gather.sh --since <reviewedSha>` so the diffs hold only new hunks.
    Reuse the stored brief. If the new hunks contain changes the brief does not
    account for, reopen the intent stop for those changes only.

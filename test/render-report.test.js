@@ -121,6 +121,21 @@ test('a re-run lists resolved, carried over and newly raised', () => {
   assert.match(markdown, /\| F-2 \| 🟠 Important .* \| 📌 Deferred — ticket 9 \|/)
 })
 
+test('prior findings not raised this run stay on the record and in the state', () => {
+  const prior = { findings: [
+    { id: 'F-1', severity: 'blocking', status: 'Fixed in abcdef0123', commit: 'abcdef0123', evidence: 'esc() added', file: 'a.js', claim: 'x' },
+    { id: 'F-2', severity: 'nit', status: 'Open', file: 'b.css', claim: 'y' },
+    { id: 'F-3', severity: 'important', status: 'Deferred', reason: 'ticket 9', file: 'c.js', claim: 'z' }
+  ] }
+  const { markdown, verdict } = render(input({ prior, review: { ...input().review, findings: [f('F-9', 'important')] },
+    decisions: { 'F-1': { status: 'Fixed', commit: 'abcdef0123', evidence: 're-verified after push' }, 'F-9': { status: 'Deferred', reason: 'next PR' } } }))
+  const state = JSON.parse(markdown.split('<!-- pr-self-review:state v1\n')[1].split('\n-->')[0])
+  assert.deepEqual(state.findings.map(x => [x.id, x.status]).sort(), [['F-1', 'Fixed in abcdef0123'], ['F-2', 'Open'], ['F-3', 'Deferred'], ['F-9', 'Deferred']])
+  assert.match(markdown, /\| F-1 \| 🔴 Blocking .* ✅ Fixed in `abcdef0` — re-verified after push \|/)
+  assert.match(markdown, /- Newly raised: F-9/)
+  assert.equal(verdict, 'Ready with open items')
+})
+
 test('emojis mark verdict, severity, results and status; the state block stays plain', () => {
   const { markdown } = render(withFindings([f('F-1', 'blocking'), f('F-2', 'important')],
     { 'F-1': { status: 'Fixed', commit: 'abcdef0' } },
