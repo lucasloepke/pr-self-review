@@ -349,6 +349,7 @@ Read these files in ${workDir} (skip any that do not exist):
 - diffstat.txt and files-prod.txt, files-test.txt — what changed
 - full.diff — consult it wherever the description leaves a file unexplained
 - conventions.txt — repo convention files worth reading
+- classify.json — a first guess at each file's tier and kind from paths and import counts
 
 Produce:
 - purpose: what the PR is for, in one sentence.
@@ -359,7 +360,7 @@ Produce:
     Shared — utilities, hooks, shared components, anything imported from several places (search for importers; high fan-in is Shared at least, whatever the folder is called).
     Leaf — presentational components, copy, styling, a single screen or route.
     Inert — docs, comments, non-shipping config. Tests are never Inert: a test file takes the tier of the code it tests.
-    If ${repoRoot}/.self-review/config.yml maps paths to tiers, it wins. When unsure, choose the higher tier.
+    Start from classify.json when it exists. Where you choose a different tier or kind, the reason must say what the guess missed. Entries marked "binding" come from the repo's config and stand as given. When unsure, choose the higher tier.
 - unexplained: files or hunks that nothing in the title, body, commits or ticket accounts for. Leave empty when everything is accounted for.
 - description: "sufficient", or "needs writing" when the PR body is empty or too vague to review against.
 - flagGate: required=true ONLY when the ticket or PR body itself asks for the work to be behind a feature flag ("behind a flag", "gated by <flag>", "dark launch", a named flag). Quote that sentence in source and name the flag if one is named. Otherwise required=false. A change merely lacking a flag is not a reason.
