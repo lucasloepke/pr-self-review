@@ -5,10 +5,12 @@ confirm what it is meant to do, prove it does that without breaking anything, ha
 independent reviewers try to break it, fix what survives verification, and leave one
 uniform report comment on the PR.
 
-Status: build steps 1 and 2 (core loop, report format) are implemented under
-`skills/self-review/`, and the core loop has been run once end to end against
-a fixture repo (see *First run*). It has not been run against a real PR yet.
-Tests: `node --test test/`. What remains is under *Build steps*.
+Status (v0.2.0): everything except screenshot proof and end-to-end runs is
+built under `skills/self-review/` and tested (`node --test test/`). The core
+loop has run end to end on the fixture repo (see *First run*); the scripts
+have run end to end on it through the installed skill. Nothing has run on a
+real PR yet — that, and the evaluation baseline, are next. What remains is
+under *Build steps*.
 
 **Shape.** A core loop — intent brief, test check, partitioned parallel
 reviewers, per-finding skeptic, triage, fresh-agent fix verification, state
@@ -122,7 +124,10 @@ a single stitched image or to links.
 **When proof cannot be produced** (app will not run here, base does not build,
 route needs credentials or data that are unavailable): the Proof row says
 `Not produced` with the reason, and the verdict cannot be better than
-*Ready with open items*. It is never left out quietly.
+*Ready with open items*. It is never left out quietly. A kind of proof the
+skill cannot make yet (screenshots, until they are built) is reported
+`Not run` instead: shown in the report and under *Not verified*, but it does
+not cap the verdict.
 
 ## Feature-flag gating
 
@@ -674,11 +679,15 @@ pr-self-review/
 │           ├── run-workflow.js   # runs review-workflow.js with agents started by the session
 │           ├── render-report.js  # report + verdict + state block from JSON, in code
 │           ├── gather.sh         # PR metadata, diff, CI, prior state; partitions the diff
-│           ├── classify.sh       # fan-in + path heuristics → tier per area
-│           ├── capture.sh        # base worktree + head, same routes, screenshots
-│           ├── publish-assets.sh # push images to the assets branch, print URLs
-│           ├── redact.sh         # mask secrets and personal data in text proof
-│           └── post-report.sh    # find the comment by marker; create or edit
+│           ├── classify.js       # config + path patterns + fan-in → tier and kind per file
+│           ├── scan.js           # secret scan of added lines, npm audit, the repo's scanners → leads
+│           ├── run-checks.js     # checks on head, flaky re-runs, base comparison, behaviour proof
+│           ├── redact.js         # mask secrets and personal data; scan mode for leads
+│           ├── suppressions.js   # .self-review/suppressions.yml: list / add
+│           ├── post-report.sh    # redact, find the comment by marker; create or edit
+│           ├── lib/yaml-lite.js  # dependency-free YAML subset for .self-review files
+│           ├── capture.sh        # (not built) base worktree + head, same routes, screenshots
+│           └── publish-assets.sh # (not built) push images to the assets branch, print URLs
 ├── eval/
 │   ├── fixture/
 │   │   ├── build.sh              # builds the fixture repo and its branches
@@ -747,18 +756,28 @@ baseline.
 5. **Live GitHub paths:** run `gather.sh` on a real PR with an existing
    report, a real post and edit through `post-report.sh`, and `--update` after
    a push — none has run against GitHub yet.
-6. Review depth: `depth-and-proof.md`, `classify.sh`, tier-scaled reviewer
-   count (the count is already in the workflow; the classification is the
-   brief's guess). Compare against the baseline.
-7. Regression vs base, flaky re-runs, scanners. Until then these report
-   `Not run`.
-8. End-to-end and proof: `capture.sh`, `publish-assets.sh`. First settle the
-   image-hosting question on a private test repo.
-9. `redact.sh` and the image check — before don't-stop mode can post.
-10. Don't-stop mode end to end (it finishes as a dry run until step 9).
-11. Learned suppressions: offer on decline, write `.self-review/suppressions.yml`.
-12. Try it on real PRs; add every miss to `eval/misses.md` and as a fixture.
-13. Package (plugin manifest, README install steps) and release.
+6. ✅ Review depth: `depth-and-proof.md`, `classify.js` (config, path
+   patterns, fan-in), which the brief starts from. Compare against the
+   baseline once it exists.
+7. ✅ Regression vs base, flaky re-runs, scanners: `run-checks.js`,
+   `scan.js`.
+8. **End-to-end and proof** — behaviour proof is built (`run-checks.js`: the
+   PR's changed tests fail on the base and pass on the head; changed tests
+   that pass on both become a lead). Still to build: screenshots
+   (`capture.sh`, `publish-assets.sh`) after settling image hosting on a
+   private test repo, and end-to-end runs through the live app. Until then
+   both report `⏭️ Not run`, which does not cap the verdict.
+9. ✅ Redaction: `redact.js`, applied to the report input and again by
+   `post-report.sh`; the workflow's `image-check` mode for screenshots.
+10. ✅ Don't-stop mode commits, pushes and posts (redaction exists). Not yet
+    run end to end.
+11. ✅ Learned suppressions: offered after a decline (never Blocking),
+    `suppressions.js` writes `.self-review/suppressions.yml`.
+12. **Real PRs** — the skill is installed (`~/.claude/skills/self-review`
+    links to this repo). Run it on 3–5 real PRs across repos, dry run first;
+    record each run and every miss (`eval/misses.md`, then a fixture).
+13. ✅ Packaged: `.claude-plugin/plugin.json` (0.2.0) and a README. Not yet
+    released or listed; the repo has no licence yet.
 
 ## Distribution
 
@@ -806,3 +825,8 @@ Personal use first, public listing later. So from the start:
 - **Known misses:** which kinds of defect have slipped through self-review so
   far? Those seed the first fixtures and the misses log.
 - **Name:** settled — `/self-review`.
+- **Licence:** the repo has none; needed before a public listing.
+- **Base dependencies:** `run-checks.js` links `node_modules`, `.venv`,
+  `venv` and `vendor` from the head into the base worktree. When the PR
+  changes dependencies the base runs against the head's, which can blur a
+  regression. Install per worktree instead, at the cost of time?
