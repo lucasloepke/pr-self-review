@@ -32,6 +32,9 @@
 // args (verify):
 //   findings        findings to re-check (id, file, line, claim, intended, observed, failureCase)
 //   fixDiffPath     optional absolute path of the combined fix diff
+//
+// args (image-check):
+//   images          [{ path, what }] — absolute paths of screenshots about to be published
 
 export const meta = {
   name: 'pr-self-review',
@@ -40,7 +43,8 @@ export const meta = {
     { title: 'Brief', detail: 'Draft the intent brief' },
     { title: 'Review', detail: 'Reviewers in parallel over the partitioned diff' },
     { title: 'Skeptic', detail: 'One skeptic per Blocking / Important finding' },
-    { title: 'Verify fixes', detail: 'Fresh agent per fixed finding' }
+    { title: 'Verify fixes', detail: 'Fresh agent per fixed finding' },
+    { title: 'Image check', detail: 'Fresh agent per screenshot, before it is published' }
   ]
 }
 
@@ -509,6 +513,43 @@ if (mode === 'verify') {
   }
 
   return { mode, resolution, introduced, fixDiffReviewed }
+}
+
+// ---------------------------------------------------------------------------
+// Mode: image-check
+// ---------------------------------------------------------------------------
+
+if (mode === 'image-check') {
+  phase('Image check')
+  const IMAGE_SCHEMA = {
+    type: 'object',
+    properties: {
+      verdict: { type: 'string', enum: ['clean', 'sensitive', 'unsure'] },
+      details: { type: 'string', description: 'What sensitive content is visible and where, or why it is unclear' }
+    },
+    required: ['verdict', 'details']
+  }
+  const images = A.images || []
+  const answers = settled(await parallel(images.map((img, i) => () => agent(
+    `You are checking a screenshot before it is published in a pull request comment, possibly on a public repository.
+
+Open the image at ${img.path} with the Read tool and look at all of it.${img.what ? ` It shows: ${img.what}.` : ''}
+
+Report whether any of this is visible: passwords, API keys, tokens, cookies or other credentials; real personal data (names, email addresses, phone numbers, postal addresses, payment or ID numbers) that is not obviously placeholder data; internal hostnames, IP addresses or file paths that name a person; private messages or documents.
+
+Return one verdict:
+- clean — nothing of the kind is visible.
+- sensitive — say what and where.
+- unsure — say what you could not judge (unreadable text, cropped content).
+Do not edit or create files other than your answer.`,
+    { label: `image:${i + 1}`, phase: 'Image check', agentType: 'general-purpose', schema: IMAGE_SCHEMA }))))
+  // Only "clean" is publishable; a failed check is not a clean one.
+  const results = images.map((img, i) => {
+    const a = answers[i]
+    const verdict = a && ['clean', 'sensitive', 'unsure'].includes(a.verdict) ? a.verdict : 'unsure'
+    return { path: img.path, verdict, details: a ? text(a.details) : 'The image check did not return.', publish: verdict === 'clean' }
+  })
+  return { mode, images: results, withheld: results.filter(r => !r.publish).length }
 }
 
 // ---------------------------------------------------------------------------

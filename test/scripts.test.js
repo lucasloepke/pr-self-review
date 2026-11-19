@@ -117,7 +117,7 @@ case "$*" in
   "pr view"*) echo "\${FAKE_STATE:-OPEN}" ;;
   *"-X PATCH"*) echo "https://example.test/edited" ;;
   api*) [ -n "\${FAKE_COMMENT_ID:-}" ] && echo "$FAKE_COMMENT_ID" ;;
-  "pr comment"*) echo "https://example.test/created" ;;
+  "pr comment"*) cp "$5" "\${FAKE_DIR}/posted.md"; echo "https://example.test/created" ;;
 esac
 exit 0`
 
@@ -125,17 +125,36 @@ function post(report, vars = {}) {
   const dir = tmp()
   const file = path.join(dir, 'report.md')
   fs.writeFileSync(file, report)
-  const r = spawnSync('bash', [path.join(SCRIPTS, 'post-report.sh'), '7', file], { env: { ...fakeGh(dir, GH), ...vars } })
-  const log = fs.existsSync(path.join(dir, 'gh.log')) ? fs.readFileSync(path.join(dir, 'gh.log'), 'utf8') : ''
-  return { status: r.status, out: r.stdout.toString().trim(), err: r.stderr.toString(), log, file }
+  const r = spawnSync('bash', [path.join(SCRIPTS, 'post-report.sh'), '7', file], { env: { ...fakeGh(dir, GH), FAKE_DIR: dir, ...vars } })
+  const read = f => (fs.existsSync(path.join(dir, f)) ? fs.readFileSync(path.join(dir, f), 'utf8') : '')
+  return { status: r.status, out: r.stdout.toString().trim(), err: r.stderr.toString(), log: read('gh.log'), posted: read('posted.md'), file }
 }
 
 test('post-report: creates the comment when none exists', () => {
   const r = post(REPORT)
   assert.equal(r.status, 0, r.err)
   assert.equal(r.out, 'https://example.test/created')
-  assert.match(r.log, new RegExp(`pr comment 7 --body-file ${r.file}`))
+  assert.match(r.log, /pr comment 7 --body-file \S+/)
   assert.doesNotMatch(r.log, /PATCH/)
+  assert.equal(r.posted, REPORT)
+})
+
+test('post-report: posts a redacted copy and leaves the report file alone', () => {
+  const leaky = REPORT.replace('## Self-review report', '## Self-review report\nseen at /Users/jane/app.js, mail jane@acme.io')
+    .replace('{"reviewedSha":"abc"}', '{"reviewedSha":"abc","note":"Authorization: Bearer abc123xyz"}')
+  const r = post(leaky)
+  assert.equal(r.status, 0, r.err)
+  assert.match(r.posted, /seen at ~\/app\.js, mail \[REDACTED:email\]/)
+  assert.match(r.posted, /"note":"Authorization: \[REDACTED:auth-header\]"/)
+  assert.match(r.err, /redaction \{"total":3/)
+  assert.equal(fs.readFileSync(r.file, 'utf8'), leaky)
+})
+
+test('post-report: refuses a state block that is not valid JSON', () => {
+  const r = post(REPORT.replace('{"reviewedSha":"abc"}', '{"reviewedSha":'))
+  assert.notEqual(r.status, 0)
+  assert.match(r.err, /not valid JSON/)
+  assert.doesNotMatch(r.log, /pr comment|PATCH/)
 })
 
 test('post-report: edits the existing comment instead of adding a second', () => {

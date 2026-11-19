@@ -216,6 +216,19 @@ test('brief mode returns the drafted brief', async () => {
   assert.equal((await run({ mode: 'brief' }, () => undefined)).result.ok, false)
 })
 
+test('image-check mode: only clean images are publishable; a failed check withholds', async () => {
+  const images = [{ path: '/w/a.png', what: 'orders page' }, { path: '/w/b.png' }, { path: '/w/c.png' }]
+  const { result, labels, calls } = await run({ mode: 'image-check', images }, label => {
+    if (label === 'image:1') return { verdict: 'clean', details: 'placeholder data only' }
+    if (label === 'image:2') return { verdict: 'sensitive', details: 'an email address in the header' }
+    return undefined
+  })
+  assert.deepEqual(labels, ['image:1', 'image:2', 'image:3'])
+  assert.ok(calls[0].prompt.includes('/w/a.png') && calls[0].prompt.includes('orders page'))
+  assert.deepEqual(result.images.map(i => [i.verdict, i.publish]), [['clean', true], ['sensitive', false], ['unsure', false]])
+  assert.equal(result.withheld, 2)
+})
+
 test('verify mode: one verifier per finding, never shown the fix diff', async () => {
   const targets = [{ ...finding(), id: 'F-111111' }, { ...finding({ file: 'b.js' }), id: 'F-222222' }]
   const { result, calls } = await run({ mode: 'verify', findings: targets, fixDiffPath: '/work/fix.diff' }, label => {
