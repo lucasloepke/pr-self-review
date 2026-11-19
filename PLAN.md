@@ -800,10 +800,10 @@ Personal use first, public listing later. So from the start:
 
 - **Tier heuristics:** the fan-in cut-off for Shared and the path patterns for
   Core are guesses; settle after the trial PRs.
-- **Image hosting:** largely settled on a private sandbox: GitHub leaves
-  `github.com/…/blob/…?raw=true` image URLs as written (no proxy), so they load
-  with the viewer's session, and signed out they 404. Confirm by eye that
-  they render for a signed-in viewer.
+- **Image hosting:** settled (2026-11-19, private sandbox): GitHub leaves
+  `github.com/…/blob/<commit>/…?raw=true` image URLs as written, so they load
+  with the viewer's session — they render for anyone with access and 404
+  for anyone without.
 - **Assets branch housekeeping:** prune a PR's images when it merges or closes,
   or keep them so old reports stay intact?
 - **Running the base:** two builds and two servers per visual PR is slow. Cache

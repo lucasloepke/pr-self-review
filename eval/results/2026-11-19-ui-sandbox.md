@@ -33,7 +33,7 @@ agent, and **no skeptics** (`--final` marked them not run). Two agents in all.
 GitHub kept the three image URLs in the comment as written (no camo proxy),
 so the viewer's browser loads them with the viewer's own session. Signed out,
 both the `github.com/…/blob/…?raw=true` and the `raw.githubusercontent.com`
-URL return 404 — nothing leaks. Whether they render for a signed-in viewer is
-checked by eye on the probe comment (A: `<img>` + blob `?raw=true`, B:
-markdown + blob `?raw=true`, C: markdown + raw URL); expected: A and B
-render, C does not.
+URL return 404 — nothing leaks. Signed in, the report's before/after
+screenshots (`<img>` + `github.com/…/blob/<commit>/…?raw=true`) render:
+confirmed by eye on 2026-11-19. Settled: that URL form is what
+`publish-assets.sh` prints and the report uses.
