@@ -1,13 +1,13 @@
 ---
 name: preflight
-description: Use when the author of a pull request or branch wants their own change checked before a human reviews it — "preflight", "self-review", "review my PR before I request review", "is this ready for review", or re-checking after pushing fixes to a PR that already carries a preflight (or older self-review) report.
+description: Use when the author of a pull request or branch wants an AI review of their own change — "preflight", "self-review", "review my PR", "is this ready for review", or re-checking after pushing fixes to a PR that already carries a preflight (or older self-review) report.
 ---
 
 # Preflight
 
-Review **your own** PR before asking a human: confirm what it is meant to do,
-have independent reviewers try to break it, fix what survives a skeptic, and
-leave one report comment on the PR.
+AI review of your PR: confirm what it is meant to do, have independent
+reviewers try to break it, fix what survives a skeptic, and leave one report
+comment on the PR.
 
 **Stance: hunt hard, report strictly, stop.** The aim is not to find
 something. A run with no Blocking or Important findings is a normal,
