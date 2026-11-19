@@ -1,0 +1,235 @@
+{
+  "about": "Answer key for eval/fixture/build.sh. A defect is caught when a kept finding sits at one of its locations, its claim contains one of its keywords (case-insensitive), and its severity is at least minSeverity. Each finding is credited to one defect at most. The brief is the author-confirmed brief passed with --brief, so the intent stop needs no human. An unexplained change is found when the brief's unexplained list mentions any of its files. knownReal are real defects that were not planted; they do not count as noise.",
+  "branches": {
+    "feature/order-filters": {
+      "description": "fixture/descriptions/order-filters.md",
+      "issue": "fixture/descriptions/order-filters.issue.md",
+      "tier": "Shared",
+      "areaTiers": {
+        "src/lib/paginate.js": "Shared",
+        "src/routes/orders.js": "Leaf"
+      },
+      "unexplained": [
+        {
+          "id": "U1",
+          "what": "formatPrice rounding change and the test edited to match",
+          "files": [
+            "src/lib/format.js",
+            "test/orders.test.js"
+          ]
+        }
+      ],
+      "defects": [
+        {
+          "id": "D1",
+          "what": "Shared paginate became zero-based; the customer listing still sends 1-based pages and skips its first page",
+          "locations": [
+            {
+              "file": "src/routes/customers.js"
+            },
+            {
+              "file": "src/lib/paginate.js"
+            }
+          ],
+          "keywords": [
+            "customer"
+          ],
+          "minSeverity": "blocking"
+        },
+        {
+          "id": "D2",
+          "what": "The status filter loads config/order-statuses.json, which does not exist, so every status filter returns nothing",
+          "locations": [
+            {
+              "file": "src/routes/orders.js",
+              "lines": [
+                4,
+                14
+              ]
+            }
+          ],
+          "keywords": [
+            "does not exist",
+            "doesn't exist",
+            "order-statuses",
+            "nonexistent",
+            "non-existent",
+            "no such file",
+            "returns an empty",
+            "always empty",
+            "every status filter"
+          ],
+          "minSeverity": "blocking"
+        },
+        {
+          "id": "D3",
+          "what": "The config error is caught and turned into an empty allow-list, hiding the failure",
+          "locations": [
+            {
+              "file": "src/routes/orders.js",
+              "lines": [
+                4,
+                14
+              ]
+            }
+          ],
+          "keywords": [
+            "catch",
+            "caught",
+            "swallow",
+            "silent",
+            "hide",
+            "hid",
+            "mask"
+          ],
+          "minSeverity": "important"
+        },
+        {
+          "id": "D4",
+          "what": "The new status-filter test only asserts that items is an array, so it cannot fail",
+          "locations": [
+            {
+              "file": "test/orders.test.js"
+            }
+          ],
+          "keywords": [
+            "cannot fail",
+            "can't fail",
+            "never fail",
+            "isarray",
+            "is an array",
+            "only asserts",
+            "always pass",
+            "vacuous"
+          ],
+          "minSeverity": "important"
+        },
+        {
+          "id": "D5",
+          "what": "formatPrice now rounds to whole dollars (unexplained change, out of scope per the brief); the test was edited to match",
+          "locations": [
+            {
+              "file": "src/lib/format.js"
+            },
+            {
+              "file": "test/orders.test.js"
+            }
+          ],
+          "keywords": [
+            "round",
+            "cents",
+            "formatprice",
+            "price format"
+          ],
+          "minSeverity": "important"
+        }
+      ],
+      "brief": {
+        "purpose": "Let support staff list only orders in a given status via an optional `status` query parameter on the order listing (restricted to statuses defined in config), and switch pagination to zero-based page indexes for the new UI.",
+        "acceptance": [
+          "listOrders(store, { status: 'paid' }) returns only orders whose status is 'paid'.",
+          "Every status listed in config/statuses.json is accepted as a filter value and returns exactly the orders in that status.",
+          "A status value not defined in the statuses config returns no orders, not the unfiltered list.",
+          "When `status` is omitted, listOrders returns all orders, as before.",
+          "The `pages` count reflects the filtered set of orders.",
+          "Pagination is zero-based: page=0 returns the first page, and omitting `page` also returns the first page.",
+          "Status filtering composes with pagination: the requested zero-based page is taken from the filtered list."
+        ],
+        "outOfScope": [
+          "Adding, removing or renaming order statuses",
+          "Filtering on any field other than status",
+          "Price formatting"
+        ],
+        "tiers": [
+          {
+            "area": "src/lib/paginate.js, test/paginate.test.js",
+            "tier": "Shared",
+            "kind": "behaviour",
+            "reason": "Imported by the order and customer listings"
+          },
+          {
+            "area": "src/routes/orders.js, test/orders.test.js",
+            "tier": "Leaf",
+            "kind": "behaviour",
+            "reason": "One route"
+          }
+        ],
+        "unexplained": [],
+        "description": "sufficient",
+        "flagGate": {
+          "required": false
+        }
+      },
+      "knownReal": [
+        {
+          "id": "R1",
+          "what": "Several acceptance criteria have no test (found in the first run; real, not planted)",
+          "locations": [
+            {
+              "file": "test/orders.test.js"
+            }
+          ],
+          "keywords": [
+            "acceptance",
+            "no test",
+            "uncovered",
+            "not covered",
+            "untested"
+          ]
+        }
+      ]
+    },
+    "feature/order-count": {
+      "description": "fixture/descriptions/order-count.md",
+      "tier": "Leaf",
+      "areaTiers": {
+        "src/routes/orders.js": "Leaf"
+      },
+      "unexplained": [],
+      "defects": [],
+      "plantedFalse": [
+        {
+          "why": "store.orders() always returns an array (src/store.js defaults it to []), so the failure case cannot happen",
+          "finding": {
+            "lens": "correctness",
+            "severity": "blocking",
+            "file": "src/routes/orders.js",
+            "line": 17,
+            "claim": "countOrders crashes when the store has no orders, because store.orders() returns undefined for an empty store.",
+            "intended": "countOrders(store) returns { count: 0 } for a store with no orders",
+            "observed": "const all = store.orders()\n  const count = query.status ? all.filter(o => o.status === query.status).length : all.length",
+            "failureCase": "countOrders(createStore()) on a fresh store: store.orders() is undefined, so all.length throws TypeError and the dashboard badge request fails with a 500.",
+            "fix": "Default to an empty array: const all = store.orders() || []"
+          }
+        }
+      ],
+      "brief": {
+        "purpose": "Add a countOrders route handler that returns the number of orders, optionally filtered by status, for the dashboard badge.",
+        "acceptance": [
+          "countOrders(store) returns { count } equal to the number of orders",
+          "countOrders(store, { status }) counts only orders with that status",
+          "An unknown status counts zero"
+        ],
+        "outOfScope": [
+          "listOrders behaviour",
+          "Pagination",
+          "Price formatting"
+        ],
+        "tiers": [
+          {
+            "area": "src/routes/orders.js, test/orders.test.js",
+            "tier": "Leaf",
+            "kind": "behaviour",
+            "reason": "A new handler in one route file"
+          }
+        ],
+        "unexplained": [],
+        "description": "sufficient",
+        "flagGate": {
+          "required": false
+        }
+      },
+      "knownReal": []
+    }
+  }
+}

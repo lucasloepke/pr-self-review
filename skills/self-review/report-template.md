@@ -4,6 +4,9 @@ The single source for the PR comment. Fixed section order, fixed headings,
 fixed table columns. An empty section stays and says `None`, so the shape
 never changes. Only *Changes since the last run* is omitted, on a first run.
 
+`scripts/render-report.js` implements everything in this file; change the two
+together, and keep `test/render-report.test.js` passing.
+
 ## Rendering rules
 
 - Line 1 is exactly `<!-- pr-self-review -->`. The last line is exactly `-->`,
@@ -27,7 +30,8 @@ never changes. Only *Changes since the last run* is omitted, on a first run.
 1. **Not ready** — any Blocking finding is `Open`, or tests are red.
 2. **Ready with open items** — any Blocking or Important finding is open,
    deferred or declined; or tests are pending or were not run; or owed proof
-   was not produced.
+   was not produced; or a reviewer did not return, so its lenses went
+   unchecked.
 3. **Ready for review** — otherwise, regardless of Suggestions and Nits.
 
 A Blocking finding the author deferred or declined does not hold the verdict

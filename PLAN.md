@@ -6,7 +6,9 @@ independent reviewers try to break it, fix what survives verification, and leave
 uniform report comment on the PR.
 
 Status: build steps 1 and 2 (core loop, report format) are implemented under
-`skills/self-review/` and not yet run against a real PR. Tests: `node --test test/`.
+`skills/self-review/`, and the core loop has been run once end to end against
+a fixture repo (see *First run*). It has not been run against a real PR yet.
+Tests: `node --test test/`. What remains is under *Build steps*.
 
 **Shape.** A core loop — intent brief, test check, partitioned parallel
 reviewers, per-finding skeptic, triage, fresh-agent fix verification, state
@@ -589,20 +591,30 @@ So the same noise is not raised on every PR:
 The skill's quality is measured, not assumed. Built alongside the skill, in
 this repo:
 
-- **A fixture repo** (`eval/fixture-app/`): a small app with tests and a UI,
-  and a set of prepared branches, each a realistic PR with **known, planted
-  defects** — one or two per branch, drawn from the AI-code failure modes list
-  (a test that cannot fail, a swallowed error, an ungated entry point, a
-  visual regression, an off-by-one in shared code) — plus a few **clean**
-  branches with nothing wrong.
-- **An answer key** (`eval/expected.yml`): per branch, the defects that must be
-  found (file, line range, minimum severity) and the tier it should be
-  classified as.
-- **An answer key** also holds each branch's confirmed intent brief, so the
-  intent stop needs no human.
-- **A runner** (`eval/run.sh`): runs the skill with `--dont-stop --dry-run`
-  against each branch, feeding it that brief, collects the report and state
-  as JSON, and scores it.
+- **A fixture repo**, built by a script (`eval/fixture/build.sh <dir>`) rather
+  than committed, since its branches are the test cases: a small app with
+  tests (and later a UI), and a set of prepared branches, each a realistic PR
+  with **known, planted defects** — one or two per branch, drawn from the
+  AI-code failure modes list (a test that cannot fail, a swallowed error, an
+  ungated entry point, a visual regression, an off-by-one in shared code) —
+  plus a few **clean** branches with nothing wrong. Each branch carries its PR
+  title and body in `eval/fixture/descriptions/`, since a branch with no PR
+  has no description of its own.
+- **An answer key** (`eval/expected.json` — JSON, so the scorer needs no
+  dependencies): per branch, the defects that must be found (file, line range,
+  minimum severity), the unexplained changes the brief must list, the tier it
+  should be classified as, and the confirmed intent brief, so the intent stop
+  needs no human.
+- **Planted false findings:** for each clean branch, at least one plausible
+  but false Blocking finding is fed straight to a skeptic, to measure whether
+  the skeptic rejects what it should. Reviewers that raise nothing false
+  otherwise leave the skeptic's rejecting side untested.
+- **A runner:** review agents are Claude Code subagents, so a run needs a
+  Claude session — a shell script cannot start them. The runner is a session
+  (`claude -p` per branch, headless) running the skill with
+  `--dont-stop --dry-run --brief <key brief> --description <file>`, which
+  leaves `result.json` and `report.md` in the work folder. `eval/score.js`
+  then scores those against the key.
 - **Scores:**
   - *Catch rate* — planted defects found at or above the expected severity.
   - *False-positive rate* — findings on clean branches, and findings not in
@@ -611,6 +623,9 @@ this repo:
     rejected.
   - *Tier accuracy*, *fix success* (does the fix make the planted defect's
     test pass), cost and wall-clock time per PR.
+  - *Duplicates* — one defect reported as two findings (the de-duplication
+    thresholds were set from a single example; see First run).
+  - *Brief recall* — planted unexplained changes the brief lists.
 - **Use:** run before every change to prompts, tiers or reviewer count, and
   compare with the last run. A prompt change that lowers catch rate or raises
   skeptic loss does not ship. Results are recorded in `eval/results/`.
@@ -656,6 +671,8 @@ pr-self-review/
 │       ├── report-template.md    # the PR comment template (single source)
 │       ├── depth-and-proof.md    # tier rules, proof owed per change kind
 │       └── scripts/
+│           ├── run-workflow.js   # runs review-workflow.js with agents started by the session
+│           ├── render-report.js  # report + verdict + state block from JSON, in code
 │           ├── gather.sh         # PR metadata, diff, CI, prior state; partitions the diff
 │           ├── classify.sh       # fan-in + path heuristics → tier per area
 │           ├── capture.sh        # base worktree + head, same routes, screenshots
@@ -663,37 +680,85 @@ pr-self-review/
 │           ├── redact.sh         # mask secrets and personal data in text proof
 │           └── post-report.sh    # find the comment by marker; create or edit
 ├── eval/
-│   ├── fixture-app/              # small app; branches with planted defects
-│   ├── expected.yml              # answer key per branch
+│   ├── fixture/
+│   │   ├── build.sh              # builds the fixture repo and its branches
+│   │   └── descriptions/         # PR title + body per branch
+│   ├── expected.json             # answer key per branch
+│   ├── score.js                  # scores a run against the key
 │   ├── misses.md                 # defects found later in self-reviewed PRs
-│   ├── run.sh                    # run the skill on each branch and score it
 │   └── results/                  # scored runs, for comparison over time
 └── .claude-plugin/
     └── plugin.json               # optional packaging
 ```
+
+## First run — 2026-11-18
+
+The core loop run once end to end on a fixture repo (now
+`eval/fixture/build.sh`): one branch with four planted defects, one clean
+branch, default mode, Shared tier, 17 fresh agents. There is no Workflow tool
+in Claude Code sessions today, so agents were started with the Agent tool from
+prompts the real `review-workflow.js` built, and their answers were replayed
+through it — the code rules ran for real.
+
+| Measured | Result |
+|---|---|
+| Planted defects caught | 4 / 4 — one by the brief (unexplained change), three by reviewers, all at or above expected severity |
+| Findings on the clean branch | 0 Blocking / Important; 1 fair Suggestion |
+| Skeptic | 5 / 5 real findings confirmed; 1 / 1 planted false finding rejected, with the line that disproves it |
+| Fix verification | 4 / 4 resolved; fix-diff review found nothing new; the open Blocking held the verdict at *Not ready* |
+| Cost | ~55–65k tokens per agent; ~770k for the defect branch (brief, 2 reviewers, 5 skeptics, 5 verifiers) |
+
+One run, one toy repo: this shows the loop works end to end, not how good it
+is. What it taught, and where each lesson went:
+
+| Lesson | Applied |
+|---|---|
+| With no suppression rules, a reviewer used the `suppressed` list to park an issue it had talked itself out of, under an invented rule — the report would have claimed a repo suppression | `suppressed` is only in the schema when rules exist, and only entries naming a real rule are counted |
+| Two reviewers described one defect in different words; claim-only de-duplication kept both | Findings also merge when they quote mostly the same code and share some wording. Thresholds come from one example: the eval's *Duplicates* score checks them |
+| The Agent-tool fallback said to "apply the code by hand" — and without a Workflow tool it is the only path | `scripts/run-workflow.js` runs the workflow and turns each agent call into a prompt file for a fresh subagent; the session loops until nothing is pending |
+| The brief called a small route handler Core ("public API") and labelled tests Inert | Brief wording: public API means published to consumers outside the repo; tests take the tier of the code they test. Re-checked on the fixture; the eval's tier accuracy settles it |
+| A branch with no PR has no description, so the brief had nothing to work from | `gather.sh --description <file>`; eval branches carry a description file |
+| Hand-writing the report's state block (JSON, `>` escaping, verdict rule) is fiddly and easy to get wrong | `scripts/render-report.js` builds the report, verdict and state block from JSON in code |
+| No reviewer raised a false finding, so the skeptic's rejecting side would have gone untested | Planted false findings per clean branch in the eval |
+| Subagents reply reliably when told to write one JSON file and answer "done" | The driver uses that channel |
+| 4 of 6 briefs filed a consequence outside the diff (the customer listing hit by the shared helper change — the planted defect itself) under `unexplained`, where the author cannot answer "meant to be there?" | Not yet: a `risks[]` field in the brief, passed to reviewers as leads, is the candidate. A wording change, so it waits for the eval |
+
+Scores and details: `eval/results/2026-11-18-first-run.md`. The brief tier
+wording was checked three runs against three: the PR tier was right 3 / 3 with
+the new wording and 0 / 3 with the old.
 
 ## Build steps
 
 Core loop first, then the additions, each measured against a working
 baseline.
 
-1. **Core loop:** `SKILL.md` and `review-workflow.js` — intent brief and gate,
-   description drafting, CI-aware test check, partitioned reviewers,
+1. ✅ **Core loop:** `SKILL.md` and `review-workflow.js` — intent brief and
+   gate, description drafting, CI-aware test check, partitioned reviewers,
    per-finding skeptic, triage, fresh-agent fix verification, state block,
    `--update`, `--dry-run`.
-2. `report-template.md` and `post-report.sh` — lock the output format.
-3. Evaluation: fixture app, planted-defect branches, answer key, runner.
-   Record a baseline score for the core loop before adding anything.
-4. Review depth: `depth-and-proof.md`, `classify.sh`, tier-scaled reviewer
-   count. Compare against the baseline.
-5. Regression vs base, flaky re-runs, scanners.
-6. End-to-end and proof: `capture.sh`, `publish-assets.sh`. First settle the
+2. ✅ `report-template.md` and `post-report.sh` — lock the output format.
+3. ✅ **First-run lessons** (table above): agent driver, description file,
+   brief tier wording, report renderer, suppression and de-dupe fixes.
+4. **Evaluation** — started: fixture builder (two branches), answer key,
+   planted false finding, scorer, first-run results. Still to do: more
+   planted-defect and clean branches (seeded from known misses), the headless
+   runner, and a baseline — several runs per branch, with spread — before
+   adding anything. Then try the brief's `risks[]` against that baseline.
+5. **Live GitHub paths:** run `gather.sh` on a real PR with an existing
+   report, a real post and edit through `post-report.sh`, and `--update` after
+   a push — none has run against GitHub yet.
+6. Review depth: `depth-and-proof.md`, `classify.sh`, tier-scaled reviewer
+   count (the count is already in the workflow; the classification is the
+   brief's guess). Compare against the baseline.
+7. Regression vs base, flaky re-runs, scanners. Until then these report
+   `Not run`.
+8. End-to-end and proof: `capture.sh`, `publish-assets.sh`. First settle the
    image-hosting question on a private test repo.
-7. `redact.sh` and the image check — before don't-stop mode can post.
-8. Don't-stop mode.
-9. Learned suppressions.
-10. Try it on real PRs; add every miss to `eval/misses.md` and as a fixture.
-11. Package (plugin manifest, README install steps) and release.
+9. `redact.sh` and the image check — before don't-stop mode can post.
+10. Don't-stop mode end to end (it finishes as a dry run until step 9).
+11. Learned suppressions: offer on decline, write `.self-review/suppressions.yml`.
+12. Try it on real PRs; add every miss to `eval/misses.md` and as a fixture.
+13. Package (plugin manifest, README install steps) and release.
 
 ## Distribution
 
@@ -725,7 +790,13 @@ Personal use first, public listing later. So from the start:
   agreement is correlated. Run the skeptic on a different model? Measure with
   the eval (skeptic loss, false positives) before deciding.
 - **Fast path:** is there a time or cost budget for small PRs beyond the Leaf
-  and Inert tiers? Decide from the eval's cost-per-PR numbers.
+  and Inert tiers? Decide from the eval's cost-per-PR numbers. First number:
+  ~770k tokens for a 33-line Shared PR with five serious findings, most of it
+  per-agent overhead (~55k each), so the skeptic and verifier counts dominate.
+  Batching skeptics, or a lighter agent type for them, are the obvious levers.
+- **Workflow tool:** the workflow is written for a Workflow tool that Claude
+  Code sessions do not have today; `run-workflow.js` is the working path. Keep
+  both, or drop the Workflow shape?
 - **Narrow or broad reviewers:** one agent per lens (eight agents), or the
   lenses folded into one to three agents by tier as planned? Compare catch
   rate and cost on the eval before fixing the split.
@@ -734,6 +805,4 @@ Personal use first, public listing later. So from the start:
   wording against catch rate and false-positive rate, not by feel.
 - **Known misses:** which kinds of defect have slipped through self-review so
   far? Those seed the first fixtures and the misses log.
-- **Name:** the command is planned as `/self-review`. If another skill with
-  that name is already installed, the two collide — rename this one (for
-  example `/pr-self-review`, matching the repo), or replace the other?
+- **Name:** settled — `/self-review`.
