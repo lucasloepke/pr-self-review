@@ -1,8 +1,8 @@
 # preflight — implementation plan
 
-A Claude Code skill that reviews **your own** PR before you ask a human to look at it:
-confirm what it is meant to do, prove it does that without breaking anything, have
-independent reviewers try to break it, fix what survives verification, and leave one
+A Claude Code skill for AI review of your pull request: confirm what it is
+meant to do, prove it does that without breaking anything, have independent
+reviewers try to break it, fix what survives verification, and leave one
 uniform report comment on the PR.
 
 Status (v0.2.0): everything except screenshot proof and end-to-end runs is

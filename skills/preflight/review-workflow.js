@@ -396,7 +396,7 @@ function reviewerPrompt(r) {
   const diffs = r.tests
     ? `Your partition of the diff: ${workDir}/prod.diff (production code) and ${workDir}/test.diff (tests). Read both in full before anything else.`
     : `Your partition of the diff: ${workDir}/prod.diff (production code). Read it in full before anything else. Test changes are reviewed by someone else.`
-  return `You are one of several independent reviewers of a pull request, working for its author before a human reviews it. You have not seen the others' work.
+  return `You are one of several independent reviewers of a pull request, working for its author. You have not seen the others' work.
 
 ${sharedContext()}
 
