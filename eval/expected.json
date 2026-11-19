@@ -230,6 +230,134 @@
         }
       },
       "knownReal": []
+    },
+    "feature/order-status-badge": {
+      "description": "fixture/descriptions/order-status-badge.md",
+      "tier": "Leaf",
+      "areaTiers": {
+        "src/views/pages.js": "Leaf",
+        "public/styles.css": "Leaf"
+      },
+      "unexplained": [],
+      "routes": [
+        "/orders",
+        "/customers"
+      ],
+      "expectedScreenshots": {
+        "/orders": "changed (intended)",
+        "/customers": "changed (regression: VIP badges become unreadable full-width blocks)"
+      },
+      "defects": [
+        {
+          "id": "V1",
+          "what": "The new global .badge rule (display: block, white text, no background) restyles the customers page's VIP badges: full-width blocks, white on pale yellow, unreadable",
+          "locations": [
+            {
+              "file": "public/styles.css"
+            },
+            {
+              "file": "src/views/pages.js"
+            }
+          ],
+          "keywords": [
+            "vip",
+            "customer",
+            "global",
+            "shared",
+            "leak",
+            "override",
+            "every .badge",
+            "all .badge",
+            "other page"
+          ],
+          "minSeverity": "important"
+        },
+        {
+          "id": "V2",
+          "what": "statusBadge puts the status into HTML without esc(), unlike every other value (CLAUDE.md requires it): stored markup in a status renders",
+          "locations": [
+            {
+              "file": "src/views/pages.js"
+            }
+          ],
+          "keywords": [
+            "escap",
+            "esc(",
+            "xss",
+            "inject",
+            "html",
+            "unsanitiz",
+            "sanitiz"
+          ],
+          "minSeverity": "important"
+        }
+      ],
+      "knownReal": [
+        {
+          "id": "R1",
+          "what": "A status with no .status-* rule renders white text on the old pale-yellow background (found in the first UI run; real, not planted)",
+          "locations": [
+            {
+              "file": "public/styles.css"
+            }
+          ],
+          "keywords": [
+            "no matching",
+            "unknown status",
+            "status with no",
+            "unmatched",
+            "new status",
+            "any other status"
+          ]
+        },
+        {
+          "id": "R2",
+          "what": "Two acceptance criteria (safe rendering, other pages unchanged) have no test (found in the first UI run)",
+          "locations": [
+            {
+              "file": "test/views.test.js"
+            }
+          ],
+          "keywords": [
+            "acceptance",
+            "no test",
+            "uncovered",
+            "not covered",
+            "untested"
+          ]
+        }
+      ],
+      "brief": {
+        "purpose": "Show each order's status on the orders page as a colored badge (green paid, amber pending, blue shipped, red cancelled) instead of plain text.",
+        "acceptance": [
+          "Each row on /orders shows its status as a badge colored by status: paid green, pending amber, shipped blue, cancelled red.",
+          "Status values are rendered safely, like every other value on the page.",
+          "Pages other than /orders look as before."
+        ],
+        "outOfScope": [
+          "The customers page",
+          "Order data and the order listing logic"
+        ],
+        "tiers": [
+          {
+            "area": "src/views/pages.js, test/views.test.js",
+            "tier": "Leaf",
+            "kind": "visual",
+            "reason": "One page's markup"
+          },
+          {
+            "area": "public/styles.css",
+            "tier": "Leaf",
+            "kind": "visual",
+            "reason": "The admin stylesheet"
+          }
+        ],
+        "unexplained": [],
+        "description": "sufficient",
+        "flagGate": {
+          "required": false
+        }
+      }
     }
   }
 }

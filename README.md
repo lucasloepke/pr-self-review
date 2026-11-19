@@ -26,6 +26,7 @@ Know this before the first run:
 | Fixes findings in your working tree | the ones you choose | every confirmed Blocking / Important / Suggestion with a clear fix; never Nits or anything needing a product decision | the ones you choose; left uncommitted |
 | Commits (one per finding) and pushes | after one go-ahead | yes | never |
 | Posts or edits **one** comment on the PR | after the same go-ahead | yes | never — written to a file |
+| Pushes screenshots to a `self-review-assets` branch | after the same go-ahead | yes | never |
 | Writes `.self-review/suppressions.yml` | only when you ask it to stop raising a kind of finding | no | no |
 
 Everything bound for GitHub is redacted first: tokens, keys, cookies, auth
@@ -94,11 +95,17 @@ scanners:                   # your own scanners; output goes to the reviewers as
 `suppressions.yml` is written by the skill when you decline a finding and ask
 it not to raise that kind again. Edit it freely.
 
+For visual changes it starts the app on the base and on your branch,
+screenshots the same pages from both with headless Chrome (installed Chrome
+or Chromium is needed), checks the images for sensitive content, and puts a
+before/after table in the comment. Images are committed to a
+`self-review-assets` branch in your repo and linked by commit; on a private
+repo they load with the viewer's own GitHub session.
+
 ## Not built yet
 
-- Before/after **screenshots** for visual changes (reported as `⏭️ Not run`;
-  this does not hold back the verdict).
-- **End-to-end** runs through the live app (reported as `⏭️ Not run`).
+- **End-to-end** runs through the live app (reported as `⏭️ Not run`; this
+  does not hold back the verdict).
 
 ## Developing
 

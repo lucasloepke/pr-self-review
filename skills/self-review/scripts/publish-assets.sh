@@ -46,7 +46,8 @@ done
 
 TREE=$(git write-tree)
 COMMIT=$(git commit-tree "$TREE" ${PARENT:+-p "$PARENT"} -m "self-review assets: PR #$PR at ${SHA:0:12}")
-git push -q "$REMOTE" "$COMMIT:refs/heads/$BRANCH" || die "push to $REMOTE/$BRANCH failed"
+# GitHub answers a new branch with a "create a pull request" hint; keep it off the output.
+PUSH_LOG=$(git push -q "$REMOTE" "$COMMIT:refs/heads/$BRANCH" 2>&1) || die "push to $REMOTE/$BRANCH failed: $PUSH_LOG"
 unset GIT_INDEX_FILE
 
 node -e '

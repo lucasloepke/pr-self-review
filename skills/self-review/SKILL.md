@@ -145,9 +145,28 @@ node <skill>/scripts/run-checks.js --repo . --out <work>/checks --base <baseSha>
   Pre-existing and flaky failures are noted, never Blocking for this PR.
 - **Proof** follows the change kinds in the confirmed brief
   (`depth-and-proof.md`): behaviour, API/CLI or refactor → `rows.proof` and
-  `proofMarkdown` (the report's Proof section). Only visual or performance
-  changes → `Not run`, "screenshots are not supported yet" (it does not cap
-  the verdict). Only inert → `Not required`.
+  `proofMarkdown` (the report's Proof section). Visual → screenshots, below.
+  Performance → the measurement before and after, by hand. Only inert →
+  `Not required`.
+- **Screenshots** for visual changes: pick the start command (package
+  scripts `dev` / `start`, README, CLAUDE.md) and the pages — every page the
+  acceptance criteria name, plus pages that render the changed components or
+  styles (a shared stylesheet means the main pages, not just the one the PR is
+  about). Then:
+
+  ```bash
+  node <skill>/scripts/capture.js --repo . --base <baseSha> --out <work>/shots \
+    --start "<start command>" --routes /a,/b [--port-env PORT]
+  ```
+
+  A page marked `changed` that the PR is not meant to touch is a lead: add it
+  to the leads and look at the image yourself. Before anything is published,
+  run the workflow in `image-check` mode on every image; only `publish: true`
+  images go further. Not a dry run →
+  `bash <skill>/scripts/publish-assets.sh <pr> <headSha> <images…>` and use
+  each file's `url`; dry run → use the local paths. Pass
+  `screenshots: [{route, before, after, changed}]` to the report. `notRun`
+  (no Chrome, the app would not start) → Proof `Not run` with that reason.
 - `proof.passOnBase` lists changed tests that pass on the base too. If it is
   not empty, write it to `<work>/leads/pass-on-base.json` and add that to the
   leads: such tests may not test the change.

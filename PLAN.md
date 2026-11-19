@@ -686,8 +686,8 @@ pr-self-review/
 │           ├── suppressions.js   # .self-review/suppressions.yml: list / add
 │           ├── post-report.sh    # redact, find the comment by marker; create or edit
 │           ├── lib/yaml-lite.js  # dependency-free YAML subset for .self-review files
-│           ├── capture.sh        # (not built) base worktree + head, same routes, screenshots
-│           └── publish-assets.sh # (not built) push images to the assets branch, print URLs
+│           ├── capture.js        # base worktree + head on their own ports, headless Chrome screenshots
+│           └── publish-assets.sh # images to the assets branch (plumbing), commit-pinned URLs
 ├── eval/
 │   ├── fixture/
 │   │   ├── build.sh              # builds the fixture repo and its branches
@@ -761,12 +761,14 @@ baseline.
    baseline once it exists.
 7. ✅ Regression vs base, flaky re-runs, scanners: `run-checks.js`,
    `scan.js`.
-8. **End-to-end and proof** — behaviour proof is built (`run-checks.js`: the
-   PR's changed tests fail on the base and pass on the head; changed tests
-   that pass on both become a lead). Still to build: screenshots
-   (`capture.sh`, `publish-assets.sh`) after settling image hosting on a
-   private test repo, and end-to-end runs through the live app. Until then
-   both report `⏭️ Not run`, which does not cap the verdict.
+8. **End-to-end and proof** — behaviour proof (`run-checks.js`) and
+   screenshots are built: `capture.js` (base worktree + head, headless
+   Chrome), `publish-assets.sh` (assets branch, commit-pinned
+   `github.com/…/blob/…?raw=true` URLs), the batched image check, and the
+   before/after table in the report. Tried on a private sandbox PR
+   (`eval/results/2026-11-19-ui-sandbox.md`). Still to build: end-to-end runs
+   through the live app (`⏭️ Not run`, no cap), and the SKILL.md steps that
+   choose routes and the start command.
 9. ✅ Redaction: `redact.js`, applied to the report input and again by
    `post-report.sh`; the workflow's `image-check` mode for screenshots.
 10. ✅ Don't-stop mode commits, pushes and posts (redaction exists). Not yet
@@ -798,9 +800,10 @@ Personal use first, public listing later. So from the start:
 
 - **Tier heuristics:** the fan-in cut-off for Shared and the path patterns for
   Core are guesses; settle after the trial PRs.
-- **Image hosting:** does a commit-pinned image on an assets branch render in
-  a PR comment on a private repo? Decides between side-by-side table, stitched
-  image, or links.
+- **Image hosting:** largely settled on a private sandbox: GitHub leaves
+  `github.com/…/blob/…?raw=true` image URLs as written (no proxy), so they load
+  with the viewer's session, and signed out they 404. Confirm by eye that
+  they render for a signed-in viewer.
 - **Assets branch housekeeping:** prune a PR's images when it merges or closes,
   or keep them so old reports stay intact?
 - **Running the base:** two builds and two servers per visual PR is slow. Cache

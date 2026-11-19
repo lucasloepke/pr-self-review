@@ -35,7 +35,8 @@ const PATTERNS = {
 
 const KIND = [
   { kind: 'inert', re: PATTERNS.Inert },
-  { kind: 'visual', re: [/\.(css|scss|sass|less|styl|svg|png|jpe?g|gif|webp)$/i, /(^|\/)(components|pages|views|screens|layouts?)\/.*\.(tsx|jsx|vue|svelte|html|erb|hbs)$/i, /\.(vue|svelte)$/i] },
+  { kind: 'visual', re: [/\.(css|scss|sass|less|styl|svg|png|jpe?g|gif|webp)$/i, /(^|\/)(components|pages|views|screens|layouts?)\/.*\.(tsx|jsx|vue|svelte|html|erb|hbs)$/i, /\.(vue|svelte)$/i,
+    /(^|\/)(views|templates)\/.*\.([cm]?[jt]sx?|html|ejs|pug|njk|jinja2?|erb|hbs)$/i] },   // server-rendered pages too
   { kind: 'api-cli', re: [/(^|\/)(routes|api|controllers?|handlers?|endpoints|cli|bin|commands)\//i] }
 ]
 

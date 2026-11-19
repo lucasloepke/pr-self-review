@@ -42,7 +42,8 @@ test('fan-in makes a helper Shared; a route stays Leaf; tests take their code\'s
 })
 
 test('Core paths, Inert docs, visual kinds', () => {
-  const { r, by } = setup({ 'a.js': '' }, ['src/auth/session.js', 'db/migrations/001_init.sql', '.github/workflows/ci.yml', 'README.md', 'src/components/Button.tsx', 'src/styles/main.css'])
+  const { r, by } = setup({ 'a.js': '' }, ['src/auth/session.js', 'db/migrations/001_init.sql', '.github/workflows/ci.yml', 'README.md', 'src/components/Button.tsx', 'src/styles/main.css', 'src/views/pages.js'])
+  assert.equal(by['src/views/pages.js'].kind, 'visual')
   assert.equal(by['src/auth/session.js'].tier, 'Core')
   assert.equal(by['db/migrations/001_init.sql'].tier, 'Core')
   assert.equal(by['.github/workflows/ci.yml'].tier, 'Core')

@@ -40,7 +40,9 @@ function scoreReview(entry, result) {
   const kept = [...(result.findings || []), ...((result.collapsed && result.collapsed.suggestion) || []),
     ...((result.collapsed && result.collapsed.nit) || []), ...(result.carried || [])]
   const rejected = result.rejected || []
-  const { credit, used } = assign(entry.defects, kept)
+  const knownRealIds = new Set(kept.filter(f => (entry.knownReal || []).some(r => matches(r, f))).map(f => f.id))
+  // A finding that is a known real defect of its own is not a duplicate of a planted one.
+  const { credit, used } = assign(entry.defects, kept.filter(f => !knownRealIds.has(f.id)))
   const rejectedCredit = assign(entry.defects, rejected).credit
   const perDefect = entry.defects.map(d => {
     const c = credit[d.id]
