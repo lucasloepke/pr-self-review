@@ -216,17 +216,22 @@ test('brief mode returns the drafted brief', async () => {
   assert.equal((await run({ mode: 'brief' }, () => undefined)).result.ok, false)
 })
 
-test('image-check mode: only clean images are publishable; a failed check withholds', async () => {
-  const images = [{ path: '/w/a.png', what: 'orders page' }, { path: '/w/b.png' }, { path: '/w/c.png' }]
+test('image-check mode: six images per agent; only clean ones are publishable', async () => {
+  const images = Array.from({ length: 8 }, (_, i) => ({ path: `/w/${i + 1}.png`, what: i === 0 ? 'orders page' : undefined }))
   const { result, labels, calls } = await run({ mode: 'image-check', images }, label => {
-    if (label === 'image:1') return { verdict: 'clean', details: 'placeholder data only' }
-    if (label === 'image:2') return { verdict: 'sensitive', details: 'an email address in the header' }
-    return undefined
+    if (label === 'images:1') return { images: [
+      { number: 1, verdict: 'clean', details: 'placeholder data only' },
+      { number: 2, verdict: 'sensitive', details: 'an email address in the header' },
+      { number: 3, verdict: 'clean', details: '' }, { number: 4, verdict: 'clean', details: '' },
+      { number: 5, verdict: 'clean', details: '' } // 6 missing
+    ] }
+    return undefined // the second batch fails
   })
-  assert.deepEqual(labels, ['image:1', 'image:2', 'image:3'])
-  assert.ok(calls[0].prompt.includes('/w/a.png') && calls[0].prompt.includes('orders page'))
-  assert.deepEqual(result.images.map(i => [i.verdict, i.publish]), [['clean', true], ['sensitive', false], ['unsure', false]])
-  assert.equal(result.withheld, 2)
+  assert.deepEqual(labels, ['images:1', 'images:2'])
+  assert.ok(calls[0].prompt.includes('1. /w/1.png — orders page') && calls[0].prompt.includes('6. /w/6.png'))
+  assert.ok(calls[1].prompt.includes('7. /w/7.png') && !calls[1].prompt.includes('/w/6.png'))
+  assert.deepEqual(result.images.map(i => i.publish), [true, false, true, true, true, false, false, false])
+  assert.equal(result.withheld, 4)
 })
 
 test('verify mode: one verifier per finding, never shown the fix diff', async () => {

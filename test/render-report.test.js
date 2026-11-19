@@ -51,6 +51,21 @@ test('verdict: deferred Blocking, open Important, unrun tests, missing proof or 
   assert.match(r.markdown, /Reviewer `does-it-work` did not return/)
 })
 
+test('screenshots render as a before/after table above the test proof', () => {
+  const { markdown } = render(input({
+    screenshots: [
+      { route: '/orders', before: 'https://github.com/o/r/blob/c/b.png?raw=true', after: 'https://github.com/o/r/blob/c/a.png?raw=true', changed: true },
+      { route: '/help', before: 'u1', after: 'u2', changed: false }
+    ],
+    proof: '| Test | Base | Head |'
+  }))
+  const section = markdown.split('### 📸 Proof\n')[1].split('\n### ')[0]
+  assert.match(section, /^\| Page \| Before \| After \|/)
+  assert.match(section, /\| `\/orders` \| <img src="https:\/\/github\.com\/o\/r\/blob\/c\/b\.png\?raw=true" width="400" alt="\/orders before"> \|/)
+  assert.match(section, /`\/help` · unchanged/)
+  assert.match(section, /\n\n\| Test \| Base \| Head \|/)
+})
+
 test('proof this version cannot make (Not run) is shown but does not cap the verdict', () => {
   const r = render(input({ checks: { ...input().checks, proof: { result: 'Not run', notes: 'screenshots not supported yet' } } }))
   assert.equal(r.verdict, 'Ready for review')

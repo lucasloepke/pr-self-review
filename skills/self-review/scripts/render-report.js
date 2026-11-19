@@ -20,6 +20,8 @@
 //     "flagGate":   Pass | Fail | Not required
 //   },
 //   "proof": "markdown for the Proof section",                                  optional
+//   "screenshots": [{ "route", "before": url, "after": url, "changed" }],         optional
+//                  (published URLs; rendered as a before/after table above "proof")
 //   "review": { the review workflow's result },
 //   "decisions": { "F-…": { "status": "Fixed" | "Open" | "Open — needs author decision" | "Deferred"
 //                           | "Declined" | "Pre-existing", "commit": "sha", "evidence": "…", "reason": "…" } },
@@ -168,7 +170,18 @@ function render(input) {
   row('Feature-flag gating', 'flagGate')
   out('')
   out('### 📸 Proof')
-  out(input.proof ? input.proof : 'None')
+  const shots = input.screenshots || []
+  if (shots.length) {
+    out('| Page | Before | After |')
+    out('|---|---|---|')
+    for (const s of shots) {
+      const label = `\`${cell(s.route)}\`${s.changed ? '' : ' · unchanged'}`
+      out(`| ${label} | <img src="${s.before}" width="400" alt="${cell(s.route)} before"> | <img src="${s.after}" width="400" alt="${cell(s.route)} after"> |`)
+    }
+    if (input.proof) out('')
+  }
+  if (input.proof) out(input.proof)
+  if (!shots.length && !input.proof) out('None')
   out('')
   if (input.prior) {
     const priorIds = Object.keys(priorById)
