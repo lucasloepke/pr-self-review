@@ -39,9 +39,18 @@ const RESULTS = {
   flagGate: ['Pass', 'Fail', 'Not required']
 }
 const RANK = { nit: 0, suggestion: 1, important: 2, blocking: 3 }
-const SKEPTIC = { confirmed: 'Confirmed', reduced: 'Reduced', unproven: 'Unproven', skipped: '—' }
+
+// Presentation only: every emoji sits next to its word, and the state block
+// stays plain text.
+const VERDICT_ICON = { 'Ready for review': '✅', 'Ready with open items': '🟡', 'Not ready': '⛔' }
+const RESULT_ICON = { Pass: '✅', Fail: '❌', Pending: '⏳', 'Not run': '⏭️', Provided: '✅', 'Not produced': '⚠️', 'Not required': '➖' }
+const SEVERITY_ICON = { blocking: '🔴', important: '🟠', suggestion: '🔵', nit: '⚪' }
+const SKEPTIC = { confirmed: '🎯 Confirmed', reduced: '⬇️ Reduced', unproven: '❓ Unproven', skipped: '—' }
+const STATUS_ICON = { Fixed: '✅', Open: '🔓', 'Open — needs author decision': '✋', Deferred: '📌', Declined: '🚫', 'Pre-existing': '🕰️' }
 
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1)
+const sev = s => `${SEVERITY_ICON[s] || ''} ${cap(s)}`.trim()
+const res = r => `${RESULT_ICON[r] || ''} ${r}`.trim()
 const cell = s => String(s == null ? '' : s).replace(/\r?\n+/g, ' ').replace(/\|/g, '\\|').trim()
 const short = (s, n) => { const t = cell(s); return t.length > n ? `${t.slice(0, n - 1)}…` : t }
 const loc = f => `\`${f.file}${f.line ? `:${f.line}` : ''}\``
@@ -93,10 +102,11 @@ function render(input) {
 
   const statusCell = f => {
     if (fixed(f)) {
-      const where = f.commit ? `Fixed in \`${f.commit.slice(0, 7)}\`` : 'Fixed in working tree'
+      const where = `✅ ${f.commit ? `Fixed in \`${f.commit.slice(0, 7)}\`` : 'Fixed in working tree'}`
       return f.evidence ? `${where} — ${short(f.evidence, 140)}` : where
     }
-    return f.reason ? `${f.status} — ${short(f.reason, 140)}` : f.status
+    const status = `${STATUS_ICON[f.status]} ${f.status}`
+    return f.reason ? `${status} — ${short(f.reason, 140)}` : status
   }
 
   const table = all.filter(f => serious(f) || fixed(f))
@@ -124,75 +134,79 @@ function render(input) {
   const lines = []
   const out = s => lines.push(s)
   out('<!-- pr-self-review -->')
-  out('## Self-review report')
+  out('## 🔍 Self-review report')
   out('')
-  out(`**Verdict:** ${verdict}`)
+  out(`**Verdict:** ${VERDICT_ICON[verdict]} ${verdict}`)
   out(`**Reviewed:** \`${(input.headSha || '').slice(0, 7)}\` (base \`${(input.baseSha || '').slice(0, 7)}\`) · ${input.date} · ${input.mode === 'dont-stop' ? "don't-stop" : 'default'} mode · skill v${input.skillVersion}${input.dryRun ? ' · dry run' : ''}`)
   out('')
-  out('### Intent')
+  const COVERAGE_ICON = { covered: '✅', uncovered: '❌' }
+  out('### 🎯 Intent')
   out(`**Purpose:** ${cell(brief.purpose)}`)
   out('**Acceptance criteria:**')
-  for (const a of brief.acceptance || []) out(`- ${cell(a)} — ${coverage[a] || 'not checked'}`)
+  for (const a of brief.acceptance || []) {
+    const c = coverage[a] || 'not checked'
+    out(`- ${cell(a)} — ${COVERAGE_ICON[c] || '❔'} ${c}`)
+  }
   if (!(brief.acceptance || []).length) out('None')
   out(`**Out of scope:** ${(brief.outOfScope || []).length ? brief.outOfScope.map(cell).join('; ') : 'None'}`)
   out(`**Review depth:** ${input.tier} — ${cell(input.tierReason)}`)
   out('')
-  out('### Checks')
+  out('### 🧪 Checks')
   out('| Check | Result | Notes |')
   out('|---|---|---|')
-  const row = (name, k) => out(`| ${name} | ${checks[k].result} | ${cell(checks[k].notes)} |`)
+  const row = (name, k) => out(`| ${name} | ${res(checks[k].result)} | ${cell(checks[k].notes)} |`)
   row('Scope matches description', 'scope')
-  out(`| Tests (${checks.tests.label || 'not run'}) | ${checks.tests.result} | ${cell(checks.tests.notes)} |`)
+  out(`| Tests (${checks.tests.label || 'not run'}) | ${res(checks.tests.result)} | ${cell(checks.tests.notes)} |`)
   row('Regression vs base', 'regression')
   row('End-to-end', 'e2e')
-  out(`| Review | ${reviewerCount} reviewers, ${c.raised || 0} raised, ${c.confirmed || 0} confirmed, ${c.rejected || 0} rejected, ${c.suppressed || 0} suppressed | ${reviewersNotRun.length ? `not run: ${reviewersNotRun.join(', ')}` : ''} |`)
+  out(`| Review | ${reviewersNotRun.length ? '⚠️' : '🤖'} ${reviewerCount} reviewers, ${c.raised || 0} raised, ${c.confirmed || 0} confirmed, ${c.rejected || 0} rejected, ${c.suppressed || 0} suppressed | ${reviewersNotRun.length ? `not run: ${reviewersNotRun.join(', ')}` : ''} |`)
   row('Proof', 'proof')
   row('Feature-flag gating', 'flagGate')
   out('')
-  out('### Proof')
+  out('### 📸 Proof')
   out(input.proof ? input.proof : 'None')
   out('')
   if (input.prior) {
     const priorIds = Object.keys(priorById)
     const byId = Object.fromEntries(all.map(f => [f.id, f]))
-    out('### Changes since the last run')
+    out('### 🔁 Changes since the last run')
     out(`- Resolved: ${ids(priorIds.filter(id => byId[id] && fixed(byId[id]) && priorById[id].status && !/^Fixed/.test(priorById[id].status)))}`)
     out(`- Carried over: ${ids(priorIds.filter(id => byId[id] && isOpen(byId[id])).map(id => `${id}${byId[id].reason ? ` (${short(byId[id].reason, 80)})` : ''}`))}`)
     out(`- Newly raised: ${ids(all.filter(f => !priorById[f.id]).map(f => f.id))}`)
     out('')
   }
-  out('### Findings')
+  out('### 🐛 Findings')
   if (table.length) {
     out('| ID | Severity | Location | Issue | Skeptic | Status |')
     out('|---|---|---|---|---|---|')
-    for (const f of table) out(`| ${f.id} | ${cap(f.severity)} | ${loc(f)} | ${cell(f.claim)} | ${SKEPTIC[f.skeptic] || '—'} | ${statusCell(f)} |`)
+    for (const f of table) out(`| ${f.id} | ${sev(f.severity)} | ${loc(f)} | ${cell(f.claim)} | ${SKEPTIC[f.skeptic] || '—'} | ${statusCell(f)} |`)
   } else {
-    out('No blocking or important findings.')
+    out('✨ No blocking or important findings.')
   }
   out('')
-  out(`**Totals:** ${tally('blocking')} blocking · ${tally('important')} important · ${tally('suggestion')} suggestion · ${tally('nit')} nit —`)
-  out(`${disp('Fixed')} fixed · ${disp('Open')} open · ${disp('Deferred')} deferred · ${disp('Declined')} declined`)
+  out(`**Totals:** 🔴 ${tally('blocking')} blocking · 🟠 ${tally('important')} important · 🔵 ${tally('suggestion')} suggestion · ⚪ ${tally('nit')} nit —`)
+  out(`✅ ${disp('Fixed')} fixed · 🔓 ${disp('Open')} open · 📌 ${disp('Deferred')} deferred · 🚫 ${disp('Declined')} declined`)
   out('')
-  out('### Rejected by the skeptic')
+  out('### 🙅 Rejected by the skeptic')
   if ((review.rejected || []).length) {
     out('| ID | Raised as | Location | Why rejected |')
     out('|---|---|---|---|')
-    for (const f of review.rejected) out(`| ${f.id} | ${cap(f.severity)} | ${loc(f)} | ${short(f.skepticReason, 200)} |`)
+    for (const f of review.rejected) out(`| ${f.id} | ${sev(f.severity)} | ${loc(f)} | ${short(f.skepticReason, 200)} |`)
   } else {
     out('None')
   }
   out('')
-  out('### Not verified')
+  out('### ⚠️ Not verified')
   out(notVerified.length ? notVerified.map(n => `- ${cell(n)}`).join('\n') : 'None')
   out('')
-  out('### Notes for the reviewer')
+  out('### 📝 Notes for the reviewer')
   const look = [...new Set(all.filter(serious).map(f => f.file))]
-  out(`**Where to look first:** ${look.length ? look.map(f => `\`${f}\``).join(', ') : 'None'}`)
-  out(`**Decisions worth a second opinion:** ${ids(secondOpinion)}`)
-  out(`**Changes beyond the description:** ${(input.keptUnexplained || []).length ? input.keptUnexplained.map(cell).join('; ') : 'None'}`)
-  out(`<details><summary>Suggestions and nits not taken (${notTaken.length})</summary>`)
+  out(`👀 **Where to look first:** ${look.length ? look.map(f => `\`${f}\``).join(', ') : 'None'}`)
+  out(`🤔 **Decisions worth a second opinion:** ${ids(secondOpinion)}`)
+  out(`➕ **Changes beyond the description:** ${(input.keptUnexplained || []).length ? input.keptUnexplained.map(cell).join('; ') : 'None'}`)
+  out(`<details><summary>💡 Suggestions and nits not taken (${notTaken.length})</summary>`)
   out('')
-  out(notTaken.length ? notTaken.map(f => `- ${f.id} · ${cap(f.severity)} · ${loc(f)} — ${cell(f.claim)}`).join('\n') : 'None')
+  out(notTaken.length ? notTaken.map(f => `- ${f.id} · ${sev(f.severity)} · ${loc(f)} — ${cell(f.claim)}`).join('\n') : 'None')
   out('')
   out('</details>')
   out('')
