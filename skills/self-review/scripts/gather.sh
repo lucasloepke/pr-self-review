@@ -3,11 +3,15 @@
 # the diff into production and test hunks.
 #
 #   bash gather.sh [<pr-number>] [--since <sha>] [--out <dir>]
+#                  [--description <file>] [--issue <file>]
 #
 #   <pr-number>   review that PR (its branch must be checked out); default: the
 #                 PR of the current branch, or the bare branch when it has none
 #   --since <sha> diff from <sha> instead of the merge base (used by --update)
 #   --out <dir>   where to write; default: <git-dir>/pr-self-review
+#   --description <file>  no PR only: the would-be PR title (first line, a
+#                 leading "# " is dropped) and body (the rest)
+#   --issue <file>  the linked ticket, same format; overrides the PR's link
 #
 # Writes: meta.txt, pr.json, issue.json, checks.json, prior-state.json,
 # commits.txt, diffstat.txt, files-prod.txt, files-test.txt, full.diff,
@@ -18,17 +22,35 @@ set -euo pipefail
 
 die() { echo "gather: $*" >&2; exit 1; }
 
-PR="" SINCE="" OUT=""
+PR="" SINCE="" OUT="" DESC="" ISSUE_FILE=""
 while (($#)); do
   case "$1" in
     --since) SINCE="${2:-}"; shift 2 ;;
     --out) OUT="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --description) DESC="${2:-}"; shift 2 ;;
+    --issue) ISSUE_FILE="${2:-}"; shift 2 ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) die "unknown option $1" ;;
     *) PR="$1"; shift ;;
   esac
 done
 [[ -z "$PR" || "$PR" =~ ^[0-9]+$ ]] || die "PR must be a number, got '$PR'"
+for f in "$DESC" "$ISSUE_FILE"; do
+  [[ -z "$f" || -s "$f" ]] || die "'$f' is missing or empty"
+done
+DESC=${DESC:+$(cd "$(dirname "$DESC")" && pwd)/$(basename "$DESC")}
+ISSUE_FILE=${ISSUE_FILE:+$(cd "$(dirname "$ISSUE_FILE")" && pwd)/$(basename "$ISSUE_FILE")}
+
+# Title on the first line (a leading "# " dropped), body after it → JSON.
+text_to_json() { # <file> <extra-json-fields>
+  node -e '
+    const [file, extra] = process.argv.slice(1)
+    const lines = require("fs").readFileSync(file, "utf8").replace(/\r\n/g, "\n").split("\n")
+    const title = lines.shift().replace(/^#\s+/, "").trim()
+    const body = lines.join("\n").trim()
+    process.stdout.write(JSON.stringify({ title, body, ...JSON.parse(extra) }))
+  ' "$1" "$2"
+}
 
 ROOT=$(git rev-parse --show-toplevel) || die "not inside a git repository"
 cd "$ROOT"
@@ -49,6 +71,7 @@ if line=$(gh pr view ${PR:+"$PR"} --json number,baseRefName,headRefName,headRefO
             --jq '[.number,.baseRefName,.headRefName,.headRefOid,.state]|@tsv' 2>/dev/null) && [[ -n "$line" ]]; then
   IFS=$'\t' read -r NUMBER BASE PR_BRANCH PUSHED_SHA PR_STATE <<<"$line"
   [[ "$PR_BRANCH" == "$BRANCH" ]] || die "PR #$NUMBER is for branch '$PR_BRANCH' but '$BRANCH' is checked out — check out the PR branch first"
+  [[ -z "$DESC" ]] || die "PR #$NUMBER has its own description; --description is only for a branch with no PR"
   gh pr view "$NUMBER" --json number,title,body,url,state,isDraft,baseRefName,headRefName,headRefOid >"$OUT/pr.json"
 elif [[ -n "$PR" ]]; then
   die "could not read PR #$PR (gh auth status? right repo?)"
@@ -64,6 +87,7 @@ else
   fi
   [[ -n "$BASE" ]] || die "no PR for this branch and no default branch found"
   [[ "$BRANCH" != "$BASE" ]] || die "on the default branch '$BASE' with no PR — nothing to review"
+  [[ -z "$DESC" ]] || text_to_json "$DESC" '{"state":"NONE","source":"--description"}' >"$OUT/pr.json"
 fi
 
 # --- Range --------------------------------------------------------------------
@@ -109,7 +133,7 @@ if [[ -n "$NUMBER" ]]; then
 
   ISSUE=$(gh pr view "$NUMBER" --json body --jq .body 2>/dev/null |
     grep -oiE '(clos|fix|resolv)(e|es|ed)?:? +#[0-9]+' | head -1 | grep -oE '[0-9]+$' || true)
-  if [[ -n "$ISSUE" ]]; then
+  if [[ -n "$ISSUE" && -z "$ISSUE_FILE" ]]; then
     gh issue view "$ISSUE" --json number,title,body,url >"$OUT/issue.json" 2>/dev/null || rm -f "$OUT/issue.json"
   fi
 
@@ -122,6 +146,8 @@ if [[ -n "$NUMBER" ]]; then
     grep -q '{' "$OUT/prior-state.json" 2>/dev/null || rm -f "$OUT/prior-state.json"
   fi
 fi
+
+[[ -z "$ISSUE_FILE" ]] || text_to_json "$ISSUE_FILE" '{"source":"--issue"}' >"$OUT/issue.json"
 
 # --- Summary ------------------------------------------------------------------
 DIRTY=no; [[ -n "$(git status --porcelain)" ]] && DIRTY=yes

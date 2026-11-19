@@ -98,6 +98,21 @@ test('same file, nearby line, same claim is one finding; highest severity wins',
   assert.equal(merged.alsoRaisedBy.length, 1)
 })
 
+test('one defect worded differently by two reviewers is merged when they quote the same code', async () => {
+  const quote = '`const page = Number(query.page) || 1` then `paginate(store.customers(), page, size)`'
+  const { result } = await run({}, shared(
+    [finding({ lens: 'callers', file: 'src/routes/customers.js', line: 4, observed: quote,
+      claim: 'The customer listing still defaults page to 1, so after paginate became 0-based it skips the first page of customers by default.' })],
+    [finding({ lens: 'ai-failure-modes', file: 'src/routes/customers.js', line: 4, observed: quote,
+      claim: 'Switching shared paginate to 0-based without updating its other caller makes the customer listing skip its first page, with no way to request it.' }),
+     finding({ lens: 'error-handling', file: 'src/routes/customers.js', line: 5, observed: '`catch (e) { return [] }`',
+      claim: 'A missing config is caught and silently turned into an empty allow-list.' })]))
+  assert.equal(result.findings.length, 2)
+  const merged = result.findings.find(f => f.line === 4)
+  assert.equal(merged.lens, 'callers')
+  assert.equal(merged.severity, 'blocking')
+})
+
 test('ids are F- plus six hex digits and stable for the same file and claim', async () => {
   const a = (await run({}, shared([finding()], []))).result.findings[0].id
   const b = (await run({}, shared([finding({ line: 90 })], []))).result.findings[0].id
@@ -186,6 +201,12 @@ test('suppressed findings are counted, not raised', async () => {
     label => review([], { suppressed: [{ rule: 'console.log in scripts/', claim: 'debug output left in' }] }))
   assert.equal(result.counts.suppressed, 2)
   assert.ok(calls[0].prompt.includes('console.log in scripts/'))
+})
+
+test('suppressed entries that name no repo rule are not counted', async () => {
+  const parked = () => review([], { suppressed: [{ rule: 'pre-existing pattern', claim: 'handler throws on null query' }] })
+  assert.equal((await run({}, parked)).result.counts.suppressed, 0)
+  assert.equal((await run({ suppressions: [{ pattern: 'console.log in scripts/' }] }, parked)).result.counts.suppressed, 0)
 })
 
 test('brief mode returns the drafted brief', async () => {

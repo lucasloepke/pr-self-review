@@ -15,6 +15,7 @@ successful result — say so plainly.
 
 ```
 /self-review [<pr>] [--dont-stop] [--update] [--dry-run] [--brief <file>]
+             [--description <file>] [--issue <file>]
 ```
 
 | Flag | Effect |
@@ -24,6 +25,8 @@ successful result — say so plainly.
 | `--update` | After new pushes: re-verify open findings, review only new hunks |
 | `--dry-run` | Everything runs; the report is written to a file. No commit, push or post. Works with no PR |
 | `--brief <file>` | A pre-confirmed brief (JSON); the intent stop is skipped |
+| `--description <file>` | Branch with no PR only: the would-be PR title (first line) and body. Passed to `gather.sh` |
+| `--issue <file>` | The linked ticket, same format, when it is not on GitHub. Passed to `gather.sh` |
 
 `<skill>` below is this skill's directory; `<work>` is the folder `gather.sh`
 prints as `workDir`.
@@ -44,12 +47,34 @@ prints as `workDir`.
   Suggestions and Nits come back under `carried`; they stay in the report under
   their disposition and are not put to the author again.
 
+## Running the workflow
+
+"Run the workflow with `{…}`" below means: write that object to a new
+`<work>/<step>/args.json` (`brief`, `review`, `verify-1`, …) and run it.
+
+- **Workflow tool available:** run `<skill>/review-workflow.js` with it.
+- **Otherwise** (the usual case), loop with the driver:
+
+  ```bash
+  node <skill>/scripts/run-workflow.js <work>/<step>/args.json <work>/<step>
+  ```
+
+  `"status": "pending"` → for every entry in `pending`, start one
+  general-purpose subagent — fresh, never a fork — all in one message so they
+  run in parallel, each with exactly this prompt and nothing else:
+  `Read the file <prompt> and carry out the instructions in it exactly. It is your whole task.`
+  When they have all finished, run the driver again. Repeat until
+  `"status": "done"`; the workflow's result is the `result` file. If a
+  subagent finished without writing its answer, run once more with `--final`
+  so it counts as failed rather than waiting forever. Anything under
+  `invalid` is a failed agent: say so in the report.
+
 Create one task per phase and work through them in order.
 
 ## 1. Gather
 
 ```bash
-bash <skill>/scripts/gather.sh [<pr>] [--since <sha>]
+bash <skill>/scripts/gather.sh [<pr>] [--since <sha>] [--description <file>] [--issue <file>]
 ```
 
 Read `meta.txt`. If `dirty: yes`, tell the author uncommitted changes are not
@@ -114,12 +139,6 @@ It returns `findings` (already checked by a skeptic where one was owed),
 `counts`. A reviewer in `counts.reviewersNotRun` is a check that did not run:
 say so in the report.
 
-**No Workflow tool:** read `review-workflow.js`; start one fresh,
-non-forked general-purpose agent per `agent()` call of that mode, in parallel,
-with exactly the prompt the script builds; then apply its ceilings, dedupe,
-ids and caps by following the code line by line. Note in the report's *Not
-verified* section that the rules were applied by hand.
-
 ## 5. Triage
 
 Show the findings grouped by severity, each as intended / observed / failure
@@ -171,19 +190,30 @@ Suggestions or Nits here.
 
 ## 8. Report, commit, push, post
 
-Render the comment from `<skill>/report-template.md` — its section order,
-vocabulary, verdict rule and state block are fixed. Write it to
-`<work>/report.md`.
+Write `<work>/report-input.json` — its fields are listed at the top of
+`<skill>/scripts/render-report.js`: the review workflow's result as it came
+back, one decision per finding (status from the closed vocabulary, with the
+verifier's evidence for `Fixed` and the author's reason for `Deferred` /
+`Declined`), every check's result, the confirmed brief and its coverage. Then:
+
+```bash
+node <skill>/scripts/render-report.js <work>/report-input.json > <work>/report.md
+```
+
+The renderer applies `report-template.md` — section order, vocabulary,
+verdict rule, state block — and prints the verdict. It refuses a status or
+check result outside the vocabulary. Do not write or edit the report by hand.
 
 Before showing or posting, read the rendered report for secrets and personal
-data (tokens, keys, cookies, auth headers, `.env` values, emails, home paths);
-mask them, and list anything withheld under *Not verified*.
+data (tokens, keys, cookies, auth headers, `.env` values, emails, home paths).
+Mask them in `report-input.json`, add what was withheld to `notVerified`, and
+render again.
 
 - **`--dry-run`:** stop here. Tell the author where `report.md` is and that
   the fixes are uncommitted in the working tree.
 - **Default mode:** show the fix diff and the rendered comment, and ask once.
-  On a yes: one commit per finding (message names the finding id), push, fill
-  the commit SHAs into the report, then
+  On a yes: one commit per finding (message names the finding id), push, add
+  each commit to its decision and render again, then
   `bash <skill>/scripts/post-report.sh <pr> <work>/report.md`.
 - **Don't-stop mode:** if `<skill>/scripts/redact.sh` exists, commit, push
   and post as above without asking. If it does not exist, finish as a dry run
@@ -203,8 +233,9 @@ Never post with `gh pr comment` directly.
    account for, reopen the intent stop for those changes only.
 4. Phases 3–7 on the new hunks, passing
    `scopeNote: "The diffs hold only hunks added since <reviewedSha>."`
-5. Phase 8, filling in *Changes since the last run*. Deferred and declined
-   findings are carried forward untouched.
+5. Phase 8 with `prior` set to `prior-state.json`, which fills in *Changes
+   since the last run*. Deferred and declined findings are carried forward
+   untouched; findings re-verified in step 2 get a decision from that result.
 
 ## Common mistakes
 

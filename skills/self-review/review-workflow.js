@@ -134,6 +134,10 @@ const FINDING_ITEM = {
   required: ['lens', 'severity', 'file', 'claim', 'intended', 'observed', 'failureCase']
 }
 
+const SUPPRESSION_RULES = (A.suppressions || []).map(s => (typeof s.pattern === 'string' ? s.pattern.trim() : '')).filter(Boolean)
+
+// `suppressed` exists only when the repo has rules; otherwise reviewers use it
+// to park findings they talked themselves out of.
 const REVIEW_SCHEMA = {
   type: 'object',
   properties: {
@@ -142,14 +146,17 @@ const REVIEW_SCHEMA = {
       description: 'The specific attacks attempted, including the ones that found nothing'
     },
     findings: { type: 'array', items: FINDING_ITEM },
-    suppressed: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: { rule: { type: 'string' }, file: { type: 'string' }, claim: { type: 'string' } },
-        required: ['rule', 'claim']
+    ...(SUPPRESSION_RULES.length ? {
+      suppressed: {
+        type: 'array',
+        description: 'Only findings that match one of the repo suppression rules; rule is that rule, copied exactly',
+        items: {
+          type: 'object',
+          properties: { rule: { type: 'string', enum: SUPPRESSION_RULES }, file: { type: 'string' }, claim: { type: 'string' } },
+          required: ['rule', 'claim']
+        }
       }
-    }
+    } : {})
   },
   required: ['attacksTried', 'findings']
 }
@@ -224,14 +231,19 @@ const words = s => text(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().spli
 
 // Share of words two claims have in common (Jaccard). Wording varies between
 // agents and runs, so "same claim" means mostly the same words, not equality.
+const stem = w => w.replace(/(ing|ed|es|s)$/, '')
 function similarity(a, b) {
-  const x = new Set(words(a)), y = new Set(words(b))
+  const x = new Set(words(a).map(stem)), y = new Set(words(b).map(stem))
   if (!x.size || !y.size) return 0
   let shared = 0
   for (const w of x) if (y.has(w)) shared++
   return shared / (x.size + y.size - shared)
 }
 const sameClaim = (a, b) => similarity(a, b) >= 0.5
+// Two reviewers describing one defect word it differently but quote the same
+// code. Mostly the same quote plus some shared wording is the same finding.
+const sameDefect = (a, b) => sameClaim(a.claim, b.claim) ||
+  (similarity(a.observed, b.observed) >= 0.7 && similarity(a.claim, b.claim) >= 0.25)
 
 function hash6(s) {
   let h = 0x811c9dc5
@@ -280,7 +292,7 @@ function dedupe(findings) {
     const dup = out.find(d =>
       d.file === f.file &&
       (d.line === null || f.line === null || Math.abs(d.line - f.line) <= 3) &&
-      sameClaim(d.claim, f.claim))
+      sameDefect(d, f))
     if (!dup) { out.push({ ...f }); continue }
     const raisers = new Set([...(dup.alsoRaisedBy || []), dup.reviewer, f.reviewer])
     if (RANK[f.severity] > RANK[dup.severity]) Object.assign(dup, f)
@@ -339,10 +351,10 @@ Produce:
 - acceptance: acceptance criteria — statements that can be checked against the running code. Specific and testable; no restating of the diff.
 - outOfScope: what the PR is meant to leave alone.
 - tiers: each changed area with its review tier, change kind and the reason.
-    Core — infrastructure, auth, data layer and migrations, build/deploy config, payments, public API.
+    Core — infrastructure, auth, data layer and migrations, build/deploy config, payments, and a public API: one published to consumers outside this repo (a library's exported interface, a versioned API that other services or customers call). An ordinary route or handler inside the app is not Core for that reason alone.
     Shared — utilities, hooks, shared components, anything imported from several places (search for importers; high fan-in is Shared at least, whatever the folder is called).
-    Leaf — presentational components, copy, styling, a single screen.
-    Inert — docs, comments, non-shipping config.
+    Leaf — presentational components, copy, styling, a single screen or route.
+    Inert — docs, comments, non-shipping config. Tests are never Inert: a test file takes the tier of the code it tests.
     If ${repoRoot}/.self-review/config.yml maps paths to tiers, it wins. When unsure, choose the higher tier.
 - unexplained: files or hunks that nothing in the title, body, commits or ticket accounts for. Leave empty when everything is accounted for.
 - description: "sufficient", or "needs writing" when the PR body is empty or too vague to review against.
@@ -519,7 +531,9 @@ const reviewers = plan.map((r, i) => {
   const res = reviewResults[i]
   if (res) {
     raised.push(...normalise(res.findings, r.name, discarded))
-    for (const s of res.suppressed || []) suppressed.push({ reviewer: r.name, rule: text(s.rule), file: text(s.file), claim: text(s.claim) })
+    for (const s of res.suppressed || []) {
+      if (SUPPRESSION_RULES.includes(text(s.rule))) suppressed.push({ reviewer: r.name, rule: text(s.rule), file: text(s.file), claim: text(s.claim) })
+    }
   }
   return { name: r.name, lenses: r.lenses, returned: Boolean(res), attacksTried: (res && res.attacksTried) || [] }
 })

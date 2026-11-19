@@ -75,6 +75,33 @@ test('gather: --since narrows the diff; an all-test range leaves prod.diff empty
   assert.match(read('meta.txt'), /^dirty: yes$/m)
 })
 
+test('gather: --description and --issue give a no-PR branch a title, body and ticket', () => {
+  const { dir } = repo()
+  const files = tmp()
+  fs.writeFileSync(path.join(files, 'desc.md'), '# Bump a to 2\n\nChanges a.\nFixes #3\n')
+  fs.writeFileSync(path.join(files, 'issue.md'), 'Ticket 3\nPlease make a two.\n')
+  const out = path.join(tmp(), 'w')
+  execFileSync('bash', [path.join(SCRIPTS, 'gather.sh'), '--out', out,
+    '--description', path.join(files, 'desc.md'), '--issue', path.join(files, 'issue.md')],
+    { cwd: dir, env: fakeGh(tmp(), 'exit 1'), stdio: 'pipe' })
+  const pr = JSON.parse(fs.readFileSync(path.join(out, 'pr.json'), 'utf8'))
+  assert.equal(pr.title, 'Bump a to 2')
+  assert.equal(pr.body, 'Changes a.\nFixes #3')
+  const issue = JSON.parse(fs.readFileSync(path.join(out, 'issue.json'), 'utf8'))
+  assert.deepEqual([issue.title, issue.body], ['Ticket 3', 'Please make a two.'])
+})
+
+test('gather: --description is refused when the branch has a PR', () => {
+  const { dir } = repo()
+  const files = tmp()
+  fs.writeFileSync(path.join(files, 'desc.md'), 'x\n')
+  const gh = `case "$*" in "pr view --json number"*) printf '7\\tmain\\tfeature/x\\tabc\\tOPEN\\n';; esac; exit 0`
+  const r = spawnSync('bash', [path.join(SCRIPTS, 'gather.sh'), '--out', path.join(tmp(), 'w'), '--description', path.join(files, 'desc.md')],
+    { cwd: dir, env: fakeGh(tmp(), gh) })
+  assert.notEqual(r.status, 0)
+  assert.match(r.stderr.toString(), /own description/)
+})
+
 test('gather: refuses the default branch with no PR', () => {
   const { dir, git } = repo()
   git('switch', '-q', 'main')
