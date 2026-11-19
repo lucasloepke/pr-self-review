@@ -14,7 +14,7 @@ something. A run with no Blocking or Important findings is a normal,
 successful result — say so plainly.
 
 ```
-/self-review [<pr>] [--dont-stop] [--update] [--dry-run] [--brief <file>]
+/self-review [<pr>] [--dont-stop] [--update] [--dry-run] [--screenshots] [--brief <file>]
              [--description <file>] [--issue <file>]
 ```
 
@@ -24,6 +24,7 @@ successful result — say so plainly.
 | `--dont-stop` | One stop: intent. Then fixes and finishes without pausing |
 | `--update` | After new pushes: re-verify open findings, review only new hunks |
 | `--dry-run` | Everything runs; the report is written to a file. No commit, push or post. Works with no PR |
+| `--screenshots` | For visual changes: start the app on base and head, capture before/after screenshots, publish them to a `self-review-assets` branch. Off by default |
 | `--brief <file>` | A pre-confirmed brief (JSON); the intent stop is skipped |
 | `--description <file>` | Branch with no PR only: the would-be PR title (first line) and body. Passed to `gather.sh` |
 | `--issue <file>` | The linked ticket, same format, when it is not on GitHub. Passed to `gather.sh` |
@@ -145,10 +146,12 @@ node <skill>/scripts/run-checks.js --repo . --out <work>/checks --base <baseSha>
   Pre-existing and flaky failures are noted, never Blocking for this PR.
 - **Proof** follows the change kinds in the confirmed brief
   (`depth-and-proof.md`): behaviour, API/CLI or refactor → `rows.proof` and
-  `proofMarkdown` (the report's Proof section). Visual → screenshots, below.
-  Performance → the measurement before and after, by hand. Only inert →
-  `Not required`.
-- **Screenshots** for visual changes: pick the start command (package
+  `proofMarkdown` (the report's Proof section). Visual → screenshots, below,
+  with `--screenshots`; without it, Proof `Not run`, "screenshots are off (run
+  with --screenshots)", which does not cap the verdict. Performance → the
+  measurement before and after, by hand. Only inert → `Not required`.
+- **Screenshots — only with `--screenshots`.** Without the flag, do not start
+  the app, capture, or push an assets branch. With it, for visual changes: pick the start command (package
   scripts `dev` / `start`, README, CLAUDE.md) and the pages — every page the
   acceptance criteria name, plus pages that render the changed components or
   styles (a shared stylesheet means the main pages, not just the one the PR is

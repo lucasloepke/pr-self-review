@@ -47,7 +47,7 @@ scanners:
 | Behaviour (bug fix, feature) | A test that fails on the base and passes on the head | `run-checks.js --proof-tests` | `⚠️ Not produced` (caps the verdict): e.g. the changed tests pass on the base too |
 | API / CLI | As behaviour; request/response or command/output before and after when a test cannot show it | `run-checks.js`, else by hand in the session | As behaviour |
 | Refactor | Same test results on base and head; no change in public surface | `run-checks.js` | As behaviour |
-| Visual | Before/after screenshots, same route, viewport and data | Not built yet | `⏭️ Not run` (does not cap) |
+| Visual | Before/after screenshots, same route, viewport and data | `capture.js`, only with `--screenshots` | `⏭️ Not run` (does not cap): flag off, no Chrome, or the app will not start |
 | Performance | The measurement before and after, with its command | By hand | `⚠️ Not produced` |
 | Inert | None | — | `➖ Not required` |
 

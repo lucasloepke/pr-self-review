@@ -12,6 +12,7 @@ the PR.
 /self-review --dry-run        # everything runs; the report goes to a file, nothing is committed, pushed or posted
 /self-review --dont-stop      # after you confirm intent, fix and post without pausing
 /self-review 123 --update     # after new pushes: re-check open findings, review only what is new
+/self-review --screenshots    # also capture before/after screenshots of visual changes (off by default)
 ```
 
 ## What it does to your repo and PR
@@ -26,7 +27,7 @@ Know this before the first run:
 | Fixes findings in your working tree | the ones you choose | every confirmed Blocking / Important / Suggestion with a clear fix; never Nits or anything needing a product decision | the ones you choose; left uncommitted |
 | Commits (one per finding) and pushes | after one go-ahead | yes | never |
 | Posts or edits **one** comment on the PR | after the same go-ahead | yes | never — written to a file |
-| Pushes screenshots to a `self-review-assets` branch | after the same go-ahead | yes | never |
+| Pushes screenshots to a `self-review-assets` branch | only with `--screenshots`, after the same go-ahead | only with `--screenshots` | never |
 | Writes `.self-review/suppressions.yml` | only when you ask it to stop raising a kind of finding | no | no |
 
 Everything bound for GitHub is redacted first: tokens, keys, cookies, auth
@@ -95,10 +96,12 @@ scanners:                   # your own scanners; output goes to the reviewers as
 `suppressions.yml` is written by the skill when you decline a finding and ask
 it not to raise that kind again. Edit it freely.
 
-For visual changes it starts the app on the base and on your branch,
-screenshots the same pages from both with headless Chrome (installed Chrome
-or Chromium is needed), checks the images for sensitive content, and puts a
-before/after table in the comment. Images are committed to a
+**Screenshots (`--screenshots`, off by default).** For visual changes it
+starts the app on the base and on your branch, screenshots the same pages
+from both with headless Chrome (installed Chrome or Chromium is needed),
+checks the images for sensitive content, and puts a before/after table in the
+comment. It needs an app that starts on its own (no login, database or
+secrets it cannot get); otherwise the report says screenshots were not run. Images are committed to a
 `self-review-assets` branch in your repo and linked by commit; on a private
 repo they load with the viewer's own GitHub session.
 

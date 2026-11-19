@@ -26,6 +26,7 @@ suppressions and an evaluation harness.
 /self-review --dont-stop      # after intent is confirmed, fix and post without pausing
 /self-review 123 --update     # after new pushes: re-verify open findings, review only new changes
 /self-review --dry-run        # run everything, write the report to a local file; no commit, push or post
+/self-review --screenshots    # also capture before/after screenshots of visual changes (opt-in)
 ```
 
 `--dry-run` also works on a branch with no PR (diffed against the default
@@ -766,7 +767,12 @@ baseline.
    Chrome), `publish-assets.sh` (assets branch, commit-pinned
    `github.com/…/blob/…?raw=true` URLs), the batched image check, and the
    before/after table in the report. Tried on a private sandbox PR
-   (`eval/results/2026-11-19-ui-sandbox.md`). Still to build: end-to-end runs
+   (`eval/results/2026-11-19-ui-sandbox.md`). **Opt-in (`--screenshots`)**
+   until real PRs show it earns its place: it must start the app unaided,
+   pushes an assets branch, and in the sandbox run the reviewer found the
+   regression from the code alone. Make it default for visual changes if the
+   trial shows it starting real apps and catching what review misses; remove
+   it if it mostly reports Not run. Still to build: end-to-end runs
    through the live app (`⏭️ Not run`, no cap), and the SKILL.md steps that
    choose routes and the start command.
 9. ✅ Redaction: `redact.js`, applied to the report input and again by
