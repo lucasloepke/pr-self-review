@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const { parse, stringifyList } = require('../skills/self-review/scripts/lib/yaml-lite.js')
+const { parse, stringifyList } = require('../skills/preflight/scripts/lib/yaml-lite.js')
 
 test('config shape: nested maps, lists, flow lists, comments, quoting', () => {
   const v = parse(`

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 
-const SRC = fs.readFileSync(path.join(__dirname, '../skills/self-review/review-workflow.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../skills/preflight/review-workflow.js'), 'utf8')
   .replace('export const meta', 'const meta')
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const workflow = new AsyncFunction('args', 'agent', 'parallel', 'phase', 'log', SRC)

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { main } = require('../skills/self-review/scripts/scan.js')
+const { main } = require('../skills/preflight/scripts/scan.js')
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'psr-scan-'))
 
@@ -11,7 +11,7 @@ function setup({ diff = '', prod = [], config = null } = {}) {
   const repo = tmp(), work = tmp()
   fs.writeFileSync(path.join(work, 'full.diff'), diff)
   fs.writeFileSync(path.join(work, 'files-prod.txt'), prod.join('\n'))
-  if (config) { fs.mkdirSync(path.join(repo, '.self-review')); fs.writeFileSync(path.join(repo, '.self-review', 'config.yml'), config) }
+  if (config) { fs.mkdirSync(path.join(repo, '.preflight')); fs.writeFileSync(path.join(repo, '.preflight', 'config.yml'), config) }
   return { repo, work, run: () => main(['--repo', repo, '--work', work]) }
 }
 

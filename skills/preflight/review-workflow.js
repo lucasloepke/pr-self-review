@@ -1,4 +1,4 @@
-// pr-self-review workflow
+// preflight workflow
 //
 // One script, three modes. Every agent it starts is fresh: it receives a fixed
 // prompt plus artifacts (files in workDir, the confirmed brief, the repo) and
@@ -37,8 +37,8 @@
 //   images          [{ path, what }] — absolute paths of screenshots about to be published
 
 export const meta = {
-  name: 'pr-self-review',
-  description: 'Intent brief, partitioned reviewers with a per-finding skeptic, and fresh-agent fix verification for a PR self-review',
+  name: 'preflight',
+  description: 'Intent brief, partitioned reviewers with a per-finding skeptic, and fresh-agent fix verification for a PR preflight review',
   phases: [
     { title: 'Brief', detail: 'Draft the intent brief' },
     { title: 'Review', detail: 'Reviewers in parallel over the partitioned diff' },

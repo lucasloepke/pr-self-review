@@ -18,7 +18,7 @@ tier, so a Core file in a mostly-Leaf PR still gets a deep read.
 
 **How an area gets its tier** (first match wins, then the highest signal):
 
-1. `.self-review/config.yml` → `tiers:` globs. Binding.
+1. `.preflight/config.yml` → `tiers:` globs. Binding.
 2. Docs and non-shipping files → Inert.
 3. Core path patterns (see `classify.js`).
 4. Fan-in: imported by `fanInShared` or more non-test files (default 2) → at
@@ -30,7 +30,7 @@ tier, so a Core file in a mostly-Leaf PR still gets a deep read.
 A test file takes the tier of the code it tests. When unsure, the higher tier.
 
 ```yaml
-# .self-review/config.yml — every key optional
+# .preflight/config.yml — every key optional
 tiers:
   Core: ["src/billing/**", "src/auth/**"]
   Leaf: ["src/marketing/**"]

@@ -6,7 +6,7 @@
 //
 // - secrets: always — the diff's added lines through redact.js's patterns
 // - npm audit: when package.json or a lockfile changed and npm is available
-// - the repo's own scanners: .self-review/config.yml →
+// - the repo's own scanners: .preflight/config.yml →
 //       scanners:
 //         - name: semgrep
 //           cmd: semgrep --config auto --json
@@ -53,9 +53,9 @@ function main(argv) {
 
   // The repo's configured scanners.
   let config = null
-  const configFile = path.join(repo, '.self-review', 'config.yml')
+  const configFile = path.join(repo, '.preflight', 'config.yml')
   if (fs.existsSync(configFile)) {
-    try { config = yaml.parse(fs.readFileSync(configFile, 'utf8')) } catch (e) { res.skipped.push({ name: 'config', why: `.self-review/config.yml: ${e.message}` }) }
+    try { config = yaml.parse(fs.readFileSync(configFile, 'utf8')) } catch (e) { res.skipped.push({ name: 'config', why: `.preflight/config.yml: ${e.message}` }) }
   }
   for (const s of (config && Array.isArray(config.scanners) ? config.scanners : [])) {
     const name = String((s && s.name) || '').replace(/[^A-Za-z0-9_-]+/g, '-')

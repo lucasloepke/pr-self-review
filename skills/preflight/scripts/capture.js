@@ -71,7 +71,7 @@ function stopApp(proc) {
 }
 
 function shoot(chrome, url, file, [w, h]) {
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'self-review-chrome-'))
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'preflight-chrome-'))
   try {
     const r = spawnSync(chrome, [
       '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',

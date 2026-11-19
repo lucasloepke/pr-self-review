@@ -9,7 +9,7 @@ bash eval/fixture/build.sh /tmp/psr-fixture          # build the fixture repo
 
 Until the headless runner exists, a run is driven from a Claude session: for
 each branch, check it out in the fixture, write the key's `brief` to a file,
-and run `/self-review --dry-run --dont-stop --brief <file> --description
+and run `/preflight --dry-run --dont-stop --brief <file> --description
 eval/fixture/descriptions/<name>.md` (plus `--issue` where the key has one).
 Each workflow step leaves a `result.json`; score them:
 

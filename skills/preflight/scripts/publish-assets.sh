@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publishes report images to the repo's self-review-assets branch, under
+# Publishes report images to the repo's preflight-assets branch, under
 # pr-<n>/<head sha>/, and prints commit-pinned URLs. Uses git plumbing with a
 # temporary index: the working tree, index and current branch are untouched.
 #
@@ -9,7 +9,7 @@
 #   url  https://github.com/<owner>/<repo>/blob/<commit>/<path>?raw=true — loads with
 #        the viewer's own session, so it also works on private repositories
 #   raw  https://raw.githubusercontent.com/<owner>/<repo>/<commit>/<path>
-# Env: SELF_REVIEW_REMOTE (default origin), SELF_REVIEW_REPO (owner/name; default from gh).
+# Env: PREFLIGHT_REMOTE (default origin), PREFLIGHT_REPO (owner/name; default from gh).
 set -euo pipefail
 
 die() { echo "publish-assets: $*" >&2; exit 1; }
@@ -22,15 +22,15 @@ for f in "$@"; do
   [[ "$f" =~ \.(png|jpe?g|gif|webp)$ ]] || die "'$f' is not an image (png, jpg, gif, webp)"
 done
 
-REMOTE=${SELF_REVIEW_REMOTE:-origin}
-BRANCH=self-review-assets
-SLUG=${SELF_REVIEW_REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)} || die "cannot tell the repository (gh repo view failed)"
+REMOTE=${PREFLIGHT_REMOTE:-origin}
+BRANCH=preflight-assets
+SLUG=${PREFLIGHT_REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)} || die "cannot tell the repository (gh repo view failed)"
 git rev-parse --git-dir >/dev/null 2>&1 || die "not inside a git repository"
 
 git fetch -q "$REMOTE" "+refs/heads/$BRANCH:refs/remotes/$REMOTE/$BRANCH" 2>/dev/null || true
 PARENT=$(git rev-parse --verify -q "refs/remotes/$REMOTE/$BRANCH" || true)
 
-INDEX=$(mktemp "${TMPDIR:-/tmp}/self-review-index.XXXXXX")
+INDEX=$(mktemp "${TMPDIR:-/tmp}/preflight-index.XXXXXX")
 trap 'rm -f "$INDEX"' EXIT
 export GIT_INDEX_FILE=$INDEX
 if [[ -n "$PARENT" ]]; then git read-tree "$PARENT"; else git read-tree --empty; fi
@@ -45,7 +45,7 @@ for f in "$@"; do
 done
 
 TREE=$(git write-tree)
-COMMIT=$(git commit-tree "$TREE" ${PARENT:+-p "$PARENT"} -m "self-review assets: PR #$PR at ${SHA:0:12}")
+COMMIT=$(git commit-tree "$TREE" ${PARENT:+-p "$PARENT"} -m "preflight assets: PR #$PR at ${SHA:0:12}")
 # GitHub answers a new branch with a "create a pull request" hint; keep it off the output.
 PUSH_LOG=$(git push -q "$REMOTE" "$COMMIT:refs/heads/$BRANCH" 2>&1) || die "push to $REMOTE/$BRANCH failed: $PUSH_LOG"
 unset GIT_INDEX_FILE

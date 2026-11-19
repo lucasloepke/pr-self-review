@@ -7,7 +7,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
 
-const SCRIPTS = path.join(__dirname, '../skills/self-review/scripts')
+const SCRIPTS = path.join(__dirname, '../skills/preflight/scripts')
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'psr-test-'))
 
 // A `gh` that logs its arguments and answers from FAKE_* variables.
@@ -111,7 +111,7 @@ test('gather: refuses the default branch with no PR', () => {
   assert.match(r.stderr.toString(), /nothing to review/)
 })
 
-const REPORT = '<!-- pr-self-review -->\n## Self-review report\n\n<!-- pr-self-review:state v1\n{"reviewedSha":"abc"}\n-->\n'
+const REPORT = '<!-- preflight -->\n## Self-review report\n\n<!-- preflight:state v1\n{"reviewedSha":"abc"}\n-->\n'
 const GH = `
 case "$*" in
   "pr view"*) echo "\${FAKE_STATE:-OPEN}" ;;
@@ -171,11 +171,11 @@ test('post-report: refuses a merged PR and malformed reports without calling gh 
   assert.match(merged.err, /MERGED/)
   assert.doesNotMatch(merged.log, /pr comment|PATCH/)
 
-  const noMarker = post(REPORT.replace('<!-- pr-self-review -->\n', ''))
+  const noMarker = post(REPORT.replace('<!-- preflight -->\n', ''))
   assert.notEqual(noMarker.status, 0)
   assert.equal(noMarker.log, '')
 
-  const noState = post('<!-- pr-self-review -->\n## Self-review report\n')
+  const noState = post('<!-- preflight -->\n## Self-review report\n')
   assert.notEqual(noState.status, 0)
   assert.match(noState.err, /state block/)
 })

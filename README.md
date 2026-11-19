@@ -1,4 +1,4 @@
-# pr-self-review
+# preflight
 
 A Claude Code skill that reviews **your own** pull request before you ask a
 human to: it confirms what the PR is for, runs your checks against the base
@@ -7,12 +7,12 @@ finding with a skeptic, fixes what survives, and leaves one report comment on
 the PR.
 
 ```
-/self-review                  # the PR for the current branch
-/self-review 123              # a specific PR
-/self-review --dry-run        # everything runs; the report goes to a file, nothing is committed, pushed or posted
-/self-review --dont-stop      # after you confirm intent, fix and post without pausing
-/self-review 123 --update     # after new pushes: re-check open findings, review only what is new
-/self-review --screenshots    # also capture before/after screenshots of visual changes (off by default)
+/preflight                  # the PR for the current branch
+/preflight 123              # a specific PR
+/preflight --dry-run        # everything runs; the report goes to a file, nothing is committed, pushed or posted
+/preflight --dont-stop      # after you confirm intent, fix and post without pausing
+/preflight 123 --update     # after new pushes: re-check open findings, review only what is new
+/preflight --screenshots    # also capture before/after screenshots of visual changes (off by default)
 ```
 
 ## What it does to your repo and PR
@@ -27,8 +27,8 @@ Know this before the first run:
 | Fixes findings in your working tree | the ones you choose | every confirmed Blocking / Important / Suggestion with a clear fix; never Nits or anything needing a product decision | the ones you choose; left uncommitted |
 | Commits (one per finding) and pushes | after one go-ahead | yes | never |
 | Posts or edits **one** comment on the PR | after the same go-ahead | yes | never — written to a file |
-| Pushes screenshots to a `self-review-assets` branch | only with `--screenshots`, after the same go-ahead | only with `--screenshots` | never |
-| Writes `.self-review/suppressions.yml` | only when you ask it to stop raising a kind of finding | no | no |
+| Pushes screenshots to a `preflight-assets` branch | only with `--screenshots`, after the same go-ahead | only with `--screenshots` | never |
+| Writes `.preflight/suppressions.yml` | only when you ask it to stop raising a kind of finding | no | no |
 
 Everything bound for GitHub is redacted first: tokens, keys, cookies, auth
 headers, secret assignments, emails and home paths are masked. On a public
@@ -72,18 +72,18 @@ Requirements: [Claude Code](https://claude.com/claude-code), `git`, the
 As a local skill (updates whenever this checkout changes):
 
 ```bash
-git clone https://github.com/lucasloepke/pr-self-review.git
-ln -s "$PWD/pr-self-review/skills/self-review" ~/.claude/skills/self-review
+git clone https://github.com/lucasloepke/pr-preflight.git
+ln -s "$PWD/pr-preflight/skills/preflight" ~/.claude/skills/preflight
 ```
 
 The repo is also laid out as a Claude Code plugin (`.claude-plugin/plugin.json`).
 
 ## Per-repo settings
 
-All optional, in `.self-review/` at the repo root, committed with the repo:
+All optional, in `.preflight/` at the repo root, committed with the repo:
 
 ```yaml
-# .self-review/config.yml
+# .preflight/config.yml
 tiers:                      # force a review tier by path
   Core: ["src/billing/**", "src/auth/**"]
   Leaf: ["src/marketing/**"]
@@ -102,7 +102,7 @@ from both with headless Chrome (installed Chrome or Chromium is needed),
 checks the images for sensitive content, and puts a before/after table in the
 comment. It needs an app that starts on its own (no login, database or
 secrets it cannot get); otherwise the report says screenshots were not run. Images are committed to a
-`self-review-assets` branch in your repo and linked by commit; on a private
+`preflight-assets` branch in your repo and linked by commit; on a private
 repo they load with the viewer's own GitHub session.
 
 ## Not built yet

@@ -1,9 +1,9 @@
 ---
-name: self-review
-description: Use when the author of a pull request or branch wants their own change checked before a human reviews it — "self-review", "review my PR before I request review", "is this ready for review", or re-checking after pushing fixes to a PR that already carries a self-review report.
+name: preflight
+description: Use when the author of a pull request or branch wants their own change checked before a human reviews it — "preflight", "self-review", "review my PR before I request review", "is this ready for review", or re-checking after pushing fixes to a PR that already carries a preflight (or older self-review) report.
 ---
 
-# Self-review
+# Preflight
 
 Review **your own** PR before asking a human: confirm what it is meant to do,
 have independent reviewers try to break it, fix what survives a skeptic, and
@@ -14,7 +14,7 @@ something. A run with no Blocking or Important findings is a normal,
 successful result — say so plainly.
 
 ```
-/self-review [<pr>] [--dont-stop] [--update] [--dry-run] [--screenshots] [--brief <file>]
+/preflight [<pr>] [--dont-stop] [--update] [--dry-run] [--screenshots] [--brief <file>]
              [--description <file>] [--issue <file>]
 ```
 
@@ -24,7 +24,7 @@ successful result — say so plainly.
 | `--dont-stop` | One stop: intent. Then fixes and finishes without pausing |
 | `--update` | After new pushes: re-verify open findings, review only new hunks |
 | `--dry-run` | Everything runs; the report is written to a file. No commit, push or post. Works with no PR |
-| `--screenshots` | For visual changes: start the app on base and head, capture before/after screenshots, publish them to a `self-review-assets` branch. Off by default |
+| `--screenshots` | For visual changes: start the app on base and head, capture before/after screenshots, publish them to a `preflight-assets` branch. Off by default |
 | `--brief <file>` | A pre-confirmed brief (JSON); the intent stop is skipped |
 | `--description <file>` | Branch with no PR only: the would-be PR title (first line) and body. Passed to `gather.sh` |
 | `--issue <file>` | The linked ticket, same format, when it is not on GitHub. Passed to `gather.sh` |
@@ -211,7 +211,7 @@ case in plain language, with the skeptic's verdict.
   "Stop raising this kind of finding in this repo?" On a yes, describe the
   kind in a sentence (not the single instance) and run
   `node <skill>/scripts/suppressions.js add --repo . --pattern "<kind>" --reason "<their reason>"`.
-  The changed `.self-review/suppressions.yml` is committed with the fixes.
+  The changed `.preflight/suppressions.yml` is committed with the fixes.
   Never offer this for a Blocking finding.
 
 **Don't-stop mode** → no question. Fix every finding the skeptic confirmed or
@@ -288,7 +288,7 @@ are published, and each withheld one is listed under `notVerified`.
   `bash <skill>/scripts/post-report.sh <pr> <work>/report.md`.
 - **Don't-stop mode:** commit, push and post as above without asking.
 
-`post-report.sh` edits the existing self-review comment when there is one.
+`post-report.sh` edits the existing report comment when there is one.
 Never post with `gh pr comment` directly.
 
 ## `--update`

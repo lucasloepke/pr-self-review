@@ -1,4 +1,4 @@
-# pr-self-review — implementation plan
+# preflight — implementation plan
 
 A Claude Code skill that reviews **your own** PR before you ask a human to look at it:
 confirm what it is meant to do, prove it does that without breaking anything, have
@@ -6,7 +6,7 @@ independent reviewers try to break it, fix what survives verification, and leave
 uniform report comment on the PR.
 
 Status (v0.2.0): everything except screenshot proof and end-to-end runs is
-built under `skills/self-review/` and tested (`node --test test/`). The core
+built under `skills/preflight/` and tested (`node --test test/`). The core
 loop has run end to end on the fixture repo (see *First run*); the scripts
 have run end to end on it through the installed skill. Nothing has run on a
 real PR yet — that, and the evaluation baseline, are next. What remains is
@@ -21,12 +21,12 @@ suppressions and an evaluation harness.
 ## Usage
 
 ```
-/self-review                  # PR for the current branch
-/self-review 123              # a specific PR
-/self-review --dont-stop      # after intent is confirmed, fix and post without pausing
-/self-review 123 --update     # after new pushes: re-verify open findings, review only new changes
-/self-review --dry-run        # run everything, write the report to a local file; no commit, push or post
-/self-review --screenshots    # also capture before/after screenshots of visual changes (opt-in)
+/preflight                  # PR for the current branch
+/preflight 123              # a specific PR
+/preflight --dont-stop      # after intent is confirmed, fix and post without pausing
+/preflight 123 --update     # after new pushes: re-verify open findings, review only new changes
+/preflight --dry-run        # run everything, write the report to a local file; no commit, push or post
+/preflight --screenshots    # also capture before/after screenshots of visual changes (opt-in)
 ```
 
 `--dry-run` also works on a branch with no PR (diffed against the default
@@ -83,7 +83,7 @@ whole takes the highest tier present.
 
 How an area gets its tier, in order of precedence:
 
-1. The repo's own config (`.self-review/config.yml`: path globs → tier), when
+1. The repo's own config (`.preflight/config.yml`: path globs → tier), when
    present.
 2. **Fan-in**: how many files import the changed module. High fan-in is Shared
    at least, whatever the folder is called.
@@ -117,7 +117,7 @@ and from mapping changed components to the pages that render them.
 
 **Getting images into the comment.** GitHub has no API for uploading comment
 attachments, so images are committed to a dedicated orphan branch in the same
-repo (`self-review-assets`, one folder per PR and head SHA) and the comment
+repo (`preflight-assets`, one folder per PR and head SHA) and the comment
 links them by commit-pinned URL in a two-column table. To verify during the
 build: that these render for viewers of a *private* repo; if not, fall back to
 a single stitched image or to links.
@@ -243,7 +243,7 @@ reported as passing.
 - Gather: diff against the merge base, commits, PR title/body, linked issue, CI
   status, the repo's CLAUDE.md / CONTRIBUTING.md / PR template.
 - Record the head SHA being reviewed.
-- **Load prior state:** find the existing self-review comment and parse its
+- **Load prior state:** find the existing report comment and parse its
   state block (last reviewed SHA, brief, findings with ids and dispositions).
   Used by `--update`, by the *Changes since the last run* section, and so
   decided findings are not re-raised.
@@ -446,7 +446,7 @@ in writing it.
   posting. Don't-stop mode does all of these directly. Commit SHAs in the
   comment are filled in after the commits exist.
 - One comment, posted with `gh pr comment`, rendered from a fixed template.
-  A re-run **edits** the existing comment; there is one self-review comment
+  A re-run **edits** the existing comment; there is one report comment
   per PR.
 - The comment ends with the machine-readable **state block**.
 
@@ -474,7 +474,7 @@ kept and say "None" so the shape never changes; only *Changes since the last
 run* is omitted on a first run.
 
 ```markdown
-<!-- pr-self-review -->
+<!-- preflight -->
 ## Self-review report
 
 **Verdict:** Ready for review | Ready with open items | Not ready
@@ -534,7 +534,7 @@ non-visual proof goes in a collapsed block>
 **Changes beyond the description:** <unexplained changes the author kept>
 <details><summary>Suggestions and nits not taken (<n>)</summary> … </details>
 
-<!-- pr-self-review:state v1
+<!-- preflight:state v1
 {"reviewedSha":"…", "mode":"…", "tier":"…", "brief":{…}, "checks":{…},
  "findings":[{id, file, line, lens, severity, claim, intended, observed,
               failureCase, skeptic, status, reason}],
@@ -580,7 +580,7 @@ So the same noise is not raised on every PR:
 
 - When the author declines a finding (`Declined`), the skill offers
   to remember it. Accepted suppressions are written to
-  `.self-review/suppressions.yml` in the repo: the pattern, the reason, who
+  `.preflight/suppressions.yml` in the repo: the pattern, the reason, who
   and when.
 - Reviewers receive the suppression list as part of their brief (it is a repo
   artifact, not session history). A finding that matches a rule is not raised;
@@ -667,10 +667,10 @@ The AI-code failure modes lens in phase 5 works from this list:
 ## Repo layout
 
 ```
-pr-self-review/
+pr-preflight/
 ├── README.md
 ├── skills/
-│   └── self-review/
+│   └── preflight/
 │       ├── SKILL.md              # the procedure: modes, phases, gates, stance
 │       ├── review-workflow.js    # reviewer + skeptic prompts, schemas, ceilings, dedupe, ids
 │       ├── ai-failure-modes.md   # the checklist above
@@ -684,9 +684,9 @@ pr-self-review/
 │           ├── scan.js           # secret scan of added lines, npm audit, the repo's scanners → leads
 │           ├── run-checks.js     # checks on head, flaky re-runs, base comparison, behaviour proof
 │           ├── redact.js         # mask secrets and personal data; scan mode for leads
-│           ├── suppressions.js   # .self-review/suppressions.yml: list / add
+│           ├── suppressions.js   # .preflight/suppressions.yml: list / add
 │           ├── post-report.sh    # redact, find the comment by marker; create or edit
-│           ├── lib/yaml-lite.js  # dependency-free YAML subset for .self-review files
+│           ├── lib/yaml-lite.js  # dependency-free YAML subset for .preflight files
 │           ├── capture.js        # base worktree + head on their own ports, headless Chrome screenshots
 │           └── publish-assets.sh # images to the assets branch (plumbing), commit-pinned URLs
 ├── eval/
@@ -782,8 +782,8 @@ baseline.
 10. ✅ Don't-stop mode commits, pushes and posts (redaction exists). Not yet
     run end to end.
 11. ✅ Learned suppressions: offered after a decline (never Blocking),
-    `suppressions.js` writes `.self-review/suppressions.yml`.
-12. **Real PRs** — the skill is installed (`~/.claude/skills/self-review`
+    `suppressions.js` writes `.preflight/suppressions.yml`.
+12. **Real PRs** — the skill is installed (`~/.claude/skills/preflight`
     links to this repo). Run it on 3–5 real PRs across repos, dry run first;
     record each run and every miss (`eval/misses.md`, then a fixture).
 13. ✅ Packaged: `.claude-plugin/plugin.json` (0.2.0) and a README. Not yet
@@ -798,7 +798,7 @@ Personal use first, public listing later. So from the start:
   no hardcoded paths. `gh` is the only hard dependency of the core loop;
   screenshot proof also needs a headless browser and is reported as not
   produced without one.
-- All per-repo files live in one committed folder, `.self-review/`:
+- All per-repo files live in one committed folder, `.preflight/`:
   `config.yml` (tier globs, thresholds, reviewer count — optional, so others
   can tune without forking) and `suppressions.yml`.
 - README written for a stranger: what it posts on your PR, what it pushes, and
@@ -835,7 +835,9 @@ Personal use first, public listing later. So from the start:
   wording against catch rate and false-positive rate, not by feel.
 - **Known misses:** which kinds of defect have slipped through self-review so
   far? Those seed the first fixtures and the misses log.
-- **Name:** settled — `/self-review`.
+- **Name:** settled — `/preflight` (renamed from `/self-review` on
+  2026-11-19; the repo from `pr-self-review` to `pr-preflight`). Reports
+  written under the old name are still found and replaced.
 - **Licence:** the repo has none; needed before a public listing.
 - **Base dependencies:** `run-checks.js` links `node_modules`, `.venv`,
   `venv` and `vendor` from the head into the base worktree. When the PR
