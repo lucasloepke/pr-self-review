@@ -1,11 +1,11 @@
 ---
 name: preflight
-description: Use when the author of a pull request or branch wants an AI review of their own change — "preflight", "self-review", "review my PR", "is this ready for review", or re-checking after pushing fixes to a PR that already carries a preflight (or older self-review) report.
+description: Use when the author of a pull request or branch wants a multi-agent review of their own change — "preflight", "self-review", "review my PR", "is this ready for review", or re-checking after pushing fixes to a PR that already carries a preflight (or older self-review) report.
 ---
 
 # Preflight
 
-AI review of your PR: confirm what it is meant to do, have independent
+Multi-agent review of your PR: confirm what it is meant to do, have independent
 reviewers try to break it, fix what survives a skeptic, and leave one report
 comment on the PR.
 

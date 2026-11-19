@@ -1,6 +1,6 @@
 # preflight
 
-A Claude Code skill for AI review of your pull request: it confirms what the
+A Claude Code skill for multi-agent review of your pull request: it confirms what the
 PR is for, runs your checks against the base branch, has independent
 reviewers try to break the change, verifies each finding with a skeptic,
 fixes what survives, and leaves one report comment on the PR.
