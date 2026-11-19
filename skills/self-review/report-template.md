@@ -17,6 +17,19 @@ together, and keep `test/render-report.test.js` passing.
 - Status is one of: `Fixed in <sha>`, `Open`, `Open — needs author decision`,
   `Deferred`, `Declined`, `Pre-existing`. Nothing else. A reason follows after
   ` — `.
+- Emojis are decoration and always sit before their word, never instead of it.
+  The state block has none. The set is fixed:
+
+  | Kind | Emoji |
+  |---|---|
+  | Verdict | ✅ Ready for review · 🟡 Ready with open items · ⛔ Not ready |
+  | Severity | 🔴 Blocking · 🟠 Important · 🔵 Suggestion · ⚪ Nit |
+  | Check result | ✅ Pass / Provided · ❌ Fail · ⏳ Pending · ⏭️ Not run · ⚠️ Not produced · ➖ Not required |
+  | Coverage | ✅ covered · ❌ uncovered · ❔ not checked |
+  | Skeptic | 🎯 Confirmed · ⬇️ Reduced · ❓ Unproven |
+  | Status | ✅ Fixed · 🔓 Open · ✋ Open — needs author decision · 📌 Deferred · 🚫 Declined · 🕰️ Pre-existing |
+  | Review row | 🤖 all reviewers returned · ⚠️ some did not |
+  | Headings | 🔍 report · 🎯 Intent · 🧪 Checks · 📸 Proof · 🔁 Changes · 🐛 Findings · 🙅 Rejected · ⚠️ Not verified · 📝 Notes |
 - The Findings table lists every Blocking and Important finding, then the
   Suggestions and Nits that were fixed. Suggestions and Nits not taken go in
   the collapsed block under *Notes for the reviewer*.
@@ -59,29 +72,29 @@ state will be raised again.
 
 ```markdown
 <!-- pr-self-review -->
-## Self-review report
+## 🔍 Self-review report
 
-**Verdict:** Ready for review | Ready with open items | Not ready
+**Verdict:** ✅ Ready for review | 🟡 Ready with open items | ⛔ Not ready
 **Reviewed:** `<head sha>` (base `<base sha>`) · <date> · <default | don't-stop> mode · skill v<version>
 
-### Intent
+### 🎯 Intent
 **Purpose:** <brief.purpose>
-**Acceptance criteria:** <each, marked covered / uncovered>
+**Acceptance criteria:** <each, marked ✅ covered / ❌ uncovered>
 **Out of scope:** <outOfScope>
 **Review depth:** <Core | Shared | Leaf | Inert> — <one line on why>
 
-### Checks
+### 🧪 Checks
 | Check | Result | Notes |
 |---|---|---|
-| Scope matches description | Pass / Fail | |
-| Tests (CI @ `<sha>` or local `<cmd>`) | Pass / Fail / Pending / Not run | |
-| Regression vs base | Pass / Fail / Not run | <flaky, pre-existing> |
-| End-to-end | Pass / Fail / Not run | |
-| Review | <n> reviewers, <n> raised, <n> confirmed, <n> rejected, <n> suppressed | |
-| Proof | Provided / Not produced | |
-| Feature-flag gating | Pass / Fail / Not required | <flag name> |
+| Scope matches description | ✅ Pass / ❌ Fail | |
+| Tests (CI @ `<sha>` or local `<cmd>`) | ✅ Pass / ❌ Fail / ⏳ Pending / ⏭️ Not run | |
+| Regression vs base | ✅ Pass / ❌ Fail / ⏭️ Not run | <flaky, pre-existing> |
+| End-to-end | ✅ Pass / ❌ Fail / ⏭️ Not run | |
+| Review | 🤖 <n> reviewers, <n> raised, <n> confirmed, <n> rejected, <n> suppressed | |
+| Proof | ✅ Provided / ⚠️ Not produced | |
+| Feature-flag gating | ✅ Pass / ❌ Fail / ➖ Not required | <flag name> |
 
-### Proof
+### 📸 Proof
 | Before | After |
 |---|---|
 | <image or output on base> | <image or output on head> |
@@ -89,34 +102,34 @@ state will be raised again.
 <gated changes use three columns: Before · After, flag off · After, flag on;
 non-visual proof goes in a collapsed block>
 
-### Changes since the last run
+### 🔁 Changes since the last run
 - Resolved: <ids>
 - Carried over: <ids, and what still fails>
 - Newly raised: <ids>
 
-### Findings
+### 🐛 Findings
 | ID | Severity | Location | Issue | Skeptic | Status |
 |---|---|---|---|---|---|
-| F-3fa9c1 | Blocking | `path:line` | … | Confirmed | Fixed in `<sha>` — <quote of the fixing code> |
-| F-b07d42 | Important | `path:line` | … | Unproven | Open — needs author decision |
-| F-58e1aa | Important | `path:line` | … | Confirmed | Deferred — <reason> · <ticket> |
-| F-c2946f | Important | `path:line` | … | Reduced | Declined — <author's reason> |
+| F-3fa9c1 | 🔴 Blocking | `path:line` | … | 🎯 Confirmed | ✅ Fixed in `<sha>` — <quote of the fixing code> |
+| F-b07d42 | 🟠 Important | `path:line` | … | ❓ Unproven | ✋ Open — needs author decision |
+| F-58e1aa | 🟠 Important | `path:line` | … | 🎯 Confirmed | 📌 Deferred — <reason> · <ticket> |
+| F-c2946f | 🟠 Important | `path:line` | … | ⬇️ Reduced | 🚫 Declined — <author's reason> |
 
-**Totals:** <n> blocking · <n> important · <n> suggestion · <n> nit —
-<n> fixed · <n> open · <n> deferred · <n> declined
+**Totals:** 🔴 <n> blocking · 🟠 <n> important · 🔵 <n> suggestion · ⚪ <n> nit —
+✅ <n> fixed · 🔓 <n> open · 📌 <n> deferred · 🚫 <n> declined
 
-### Rejected by the skeptic
+### 🙅 Rejected by the skeptic
 | ID | Raised as | Location | Why rejected |
 |---|---|---|---|
 
-### Not verified
+### ⚠️ Not verified
 <what could not be run or checked, and why; anything withheld by redaction>
 
-### Notes for the reviewer
-**Where to look first:** <files with Blocking / Important findings>
-**Decisions worth a second opinion:** <ids the author declined>
-**Changes beyond the description:** <unexplained changes the author kept>
-<details><summary>Suggestions and nits not taken (<n>)</summary> … </details>
+### 📝 Notes for the reviewer
+👀 **Where to look first:** <files with Blocking / Important findings>
+🤔 **Decisions worth a second opinion:** <ids the author declined>
+➕ **Changes beyond the description:** <unexplained changes the author kept>
+<details><summary>💡 Suggestions and nits not taken (<n>)</summary> … </details>
 
 <!-- pr-self-review:state v1
 <state JSON>

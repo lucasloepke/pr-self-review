@@ -96,5 +96,18 @@ test('a re-run lists resolved, carried over and newly raised', () => {
   assert.match(markdown, /- Resolved: F-1/)
   assert.match(markdown, /- Carried over: None/)
   assert.match(markdown, /- Newly raised: F-3/)
-  assert.match(markdown, /\| F-2 \| Important .* \| Deferred — ticket 9 \|/)
+  assert.match(markdown, /\| F-2 \| 🟠 Important .* \| 📌 Deferred — ticket 9 \|/)
+})
+
+test('emojis mark verdict, severity, results and status; the state block stays plain', () => {
+  const { markdown } = render(withFindings([f('F-1', 'blocking'), f('F-2', 'important')],
+    { 'F-1': { status: 'Fixed', commit: 'abcdef0' } },
+    { checks: { ...input().checks, e2e: { result: 'Not run' } } }))
+  assert.match(markdown, /\*\*Verdict:\*\* 🟡 Ready with open items/)
+  assert.match(markdown, /\| F-1 \| 🔴 Blocking .* \| 🎯 Confirmed \| ✅ Fixed in `abcdef0` \|/)
+  assert.match(markdown, /\| F-2 \| 🟠 Important .* \| 🔓 Open \|/)
+  assert.match(markdown, /\| End-to-end \| ⏭️ Not run \|/)
+  assert.match(markdown, /a works — ✅ covered/)
+  const state = markdown.split('<!-- pr-self-review:state v1\n')[1]
+  assert.doesNotMatch(state, /[🔴🟠🔵⚪✅🔓📌🚫🎯]/u)
 })
