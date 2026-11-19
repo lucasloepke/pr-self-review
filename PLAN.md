@@ -667,7 +667,7 @@ The AI-code failure modes lens in phase 5 works from this list:
 ## Repo layout
 
 ```
-pr-preflight/
+preflight/
 ├── README.md
 ├── skills/
 │   └── preflight/
@@ -836,7 +836,7 @@ Personal use first, public listing later. So from the start:
 - **Known misses:** which kinds of defect have slipped through self-review so
   far? Those seed the first fixtures and the misses log.
 - **Name:** settled — `/preflight` (renamed from `/self-review` on
-  2026-11-19; the repo from `pr-self-review` to `pr-preflight`). Reports
+  2026-11-19; the repo from `pr-self-review` to `pr-preflight`, then `preflight`). Reports
   written under the old name are still found and replaced.
 - **Licence:** the repo has none; needed before a public listing.
 - **Base dependencies:** `run-checks.js` links `node_modules`, `.venv`,

@@ -72,8 +72,8 @@ Requirements: [Claude Code](https://claude.com/claude-code), `git`, the
 As a local skill (updates whenever this checkout changes):
 
 ```bash
-git clone https://github.com/lucasloepke/pr-preflight.git
-ln -s "$PWD/pr-preflight/skills/preflight" ~/.claude/skills/preflight
+git clone https://github.com/lucasloepke/preflight.git
+ln -s "$PWD/preflight/skills/preflight" ~/.claude/skills/preflight
 ```
 
 The repo is also laid out as a Claude Code plugin (`.claude-plugin/plugin.json`).
