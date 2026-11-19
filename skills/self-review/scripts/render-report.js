@@ -16,7 +16,7 @@
 //     "tests":      Pass | Fail | Pending | Not run          + "label": "CI @ `abc1234`" or "local `npm test`"
 //     "regression": Pass | Fail | Not run
 //     "e2e":        Pass | Fail | Not run
-//     "proof":      Provided | Not produced | Not required
+//     "proof":      Provided | Not produced | Not run | Not required
 //     "flagGate":   Pass | Fail | Not required
 //   },
 //   "proof": "markdown for the Proof section",                                  optional
@@ -35,7 +35,9 @@ const RESULTS = {
   tests: ['Pass', 'Fail', 'Pending', 'Not run'],
   regression: ['Pass', 'Fail', 'Not run'],
   e2e: ['Pass', 'Fail', 'Not run'],
-  proof: ['Provided', 'Not produced', 'Not required'],
+  // Not produced: owed and producible, but it did not come out — caps the verdict.
+  // Not run: a kind of proof this version cannot make yet (screenshots) — shown, no cap.
+  proof: ['Provided', 'Not produced', 'Not run', 'Not required'],
   flagGate: ['Pass', 'Fail', 'Not required']
 }
 const RANK = { nit: 0, suggestion: 1, important: 2, blocking: 3 }
@@ -122,7 +124,9 @@ function render(input) {
   for (const [k, label] of [['regression', 'Regression vs base'], ['e2e', 'End-to-end'], ['tests', 'Tests']]) {
     if (checks[k].result === 'Not run') notVerified.push(`${label}: not run${checks[k].notes ? ` — ${checks[k].notes}` : ''}`)
   }
-  if (checks.proof.result === 'Not produced') notVerified.push(`Proof: not produced${checks.proof.notes ? ` — ${checks.proof.notes}` : ''}`)
+  if (['Not produced', 'Not run'].includes(checks.proof.result)) {
+    notVerified.push(`Proof: ${checks.proof.result.toLowerCase()}${checks.proof.notes ? ` — ${checks.proof.notes}` : ''}`)
+  }
   for (const r of reviewersNotRun) notVerified.push(`Reviewer \`${r}\` did not return; its lenses were not covered.`)
   for (const a of input.invalidAgents || []) notVerified.push(`Agent \`${a}\` returned an unreadable answer and counts as not run.`)
 

@@ -51,6 +51,13 @@ test('verdict: deferred Blocking, open Important, unrun tests, missing proof or 
   assert.match(r.markdown, /Reviewer `does-it-work` did not return/)
 })
 
+test('proof this version cannot make (Not run) is shown but does not cap the verdict', () => {
+  const r = render(input({ checks: { ...input().checks, proof: { result: 'Not run', notes: 'screenshots not supported yet' } } }))
+  assert.equal(r.verdict, 'Ready for review')
+  assert.match(r.markdown, /\| Proof \| ⏭️ Not run \| screenshots not supported yet \|/)
+  assert.match(r.markdown, /- Proof: not run — screenshots not supported yet/)
+})
+
 test('verdict: fixed serious findings and open suggestions → Ready for review', () => {
   const r = render(withFindings([f('F-1', 'blocking'), f('F-2', 'suggestion')], { 'F-1': { status: 'Fixed', commit: '1234567890', evidence: 'quoted fix' } }))
   assert.equal(r.verdict, 'Ready for review')
