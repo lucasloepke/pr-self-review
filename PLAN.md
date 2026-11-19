@@ -754,9 +754,11 @@ baseline.
    planted-defect and clean branches (seeded from known misses), the headless
    runner, and a baseline — several runs per branch, with spread — before
    adding anything. Then try the brief's `risks[]` against that baseline.
-5. **Live GitHub paths:** run `gather.sh` on a real PR with an existing
-   report, a real post and edit through `post-report.sh`, and `--update` after
-   a push — none has run against GitHub yet.
+5. ✅ **Live GitHub paths** (`eval/results/2026-11-19-live-paths.md`): a full
+   default run on a PR with an existing report (edited in place), `--update`
+   after a push, and `--dont-stop` on a new PR, all on the private sandbox.
+   Two bugs found and fixed: prior findings matched on wording only, and prior
+   findings not raised again dropped out of the report.
 6. ✅ Review depth: `depth-and-proof.md`, `classify.js` (config, path
    patterns, fan-in), which the brief starts from. Compare against the
    baseline once it exists.

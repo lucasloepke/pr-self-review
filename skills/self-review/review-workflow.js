@@ -248,6 +248,13 @@ const sameClaim = (a, b) => similarity(a, b) >= 0.5
 // code. Mostly the same quote plus some shared wording is the same finding.
 const sameDefect = (a, b) => sameClaim(a.claim, b.claim) ||
   (similarity(a.observed, b.observed) >= 0.7 && similarity(a.claim, b.claim) >= 0.25)
+// Across runs a reviewer rewords more and quotes a little differently (real
+// repeats measured 0.62–0.68 on the quote, 0.24–0.38 on the claim; unrelated
+// findings in the same file stayed under 0.15), so matching a prior finding is
+// looser than de-duplicating within one run.
+const samePrior = (p, f) => sameClaim(p.claim, f.claim) ||
+  (similarity(p.observed, f.observed) >= 0.5 &&
+    Math.max(similarity(p.claim, f.claim), similarity(p.failureCase, f.failureCase)) >= 0.2)
 
 function hash6(s) {
   let h = 0x811c9dc5
@@ -309,8 +316,8 @@ function dedupe(findings) {
 function assignIds(findings, prior) {
   const used = new Set()
   for (const f of findings) {
-    // Lines move between runs, so a prior finding matches on file and claim only.
-    const match = (prior || []).find(p => p.id && !used.has(p.id) && p.file === f.file && sameClaim(p.claim, f.claim))
+    // Lines move between runs, so a prior finding matches on file, quoted code and wording — not line.
+    const match = (prior || []).find(p => p.id && !used.has(p.id) && p.file === f.file && samePrior(p, f))
     let id = match ? match.id : findingId(f)
     for (let n = 2; used.has(id); n++) id = `${match ? match.id : findingId(f)}-${n}`
     used.add(id)

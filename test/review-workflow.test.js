@@ -181,6 +181,20 @@ test('findings already decided on an earlier run are carried, not raised again',
   assert.equal(labels.filter(l => l.startsWith('skeptic')).length, 1)
 })
 
+test('a prior finding reworded on the next run keeps its id and stays decided (real pair from the sandbox)', async () => {
+  const prior = [{ id: 'F-d746a5', file: 'public/styles.css', severity: 'suggestion', status: 'Open',
+    claim: 'A status with no matching .status-* rule renders as white text on the pale-yellow VIP background, i.e. unreadable.',
+    observed: '.badge { display: block; width: 88px; color: #fff; } /* no background */ and .badge { background: #fff8c5; }',
+    failureCase: 'An order with status refunded gets white text on a pale yellow badge and cannot be read.' }]
+  const { result } = await run({ priorFindings: prior }, shared([], [finding({
+    lens: 'correctness', severity: 'suggestion', file: 'public/styles.css', line: 14,
+    claim: "A status outside the four styled values gets white text on the base badge's pale-yellow background, making it unreadable.",
+    observed: '.badge { display: block; width: 88px; color: #fff; } with the earlier .badge { background: #fff8c5; } still applying',
+    failureCase: 'A refunded order shows white text on a pale yellow badge that cannot be read.' })]))
+  assert.deepEqual(result.carried.map(f => f.id), ['F-d746a5'])
+  assert.equal(result.findings.length, 0)
+})
+
 test('suggestions and nits are capped at five shown each', async () => {
   const many = Array.from({ length: 7 }, (_, i) => finding({
     lens: 'simplification', file: `f${i}.js`, claim: `Helper number ${i} duplicates existing utility module${i}` }))

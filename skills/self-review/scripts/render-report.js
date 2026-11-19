@@ -89,6 +89,16 @@ function render(input) {
     all.push({ ...f, status: d.status || baseStatus(p.status || f.priorStatus), commit: d.commit || p.commit || '',
       evidence: d.evidence || p.evidence || '', reason: d.reason || p.reason || '', carried: true })
   }
+  // Prior findings not raised this run (a scoped --update, or simply not seen
+  // again) stay on the record with their prior status, or an updated decision
+  // (e.g. from re-verification). Dropping them would let a later run raise them again.
+  const present = new Set(all.map(f => f.id))
+  for (const p of Object.values(priorById)) {
+    if (present.has(p.id) || !(p.severity in RANK)) continue
+    const d = decisions[p.id] || {}
+    all.push({ ...p, status: d.status || baseStatus(p.status), commit: d.commit || p.commit || '',
+      evidence: d.evidence || p.evidence || '', reason: d.reason || p.reason || '', carried: true })
+  }
   all.sort((a, b) => RANK[b.severity] - RANK[a.severity])
 
   const serious = f => RANK[f.severity] >= RANK.important
