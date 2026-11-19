@@ -1,7 +1,7 @@
 {
   "name": "preflight",
   "version": "0.3.0",
-  "description": "AI review of your pull request: confirm intent, run checks against the base, have independent reviewers and a skeptic try to break it, fix what survives, and post one report comment.",
+  "description": "Multi-agent review of your pull request: confirm intent, run checks against the base, have independent reviewers and a skeptic try to break it, fix what survives, and post one report comment.",
   "author": {
     "name": "Lucas Loepke",
     "url": "https://github.com/lucasloepke"

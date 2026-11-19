@@ -1,6 +1,6 @@
 # preflight — implementation plan
 
-A Claude Code skill for AI review of your pull request: confirm what it is
+A Claude Code skill for multi-agent review of your pull request: confirm what it is
 meant to do, prove it does that without breaking anything, have independent
 reviewers try to break it, fix what survives verification, and leave one
 uniform report comment on the PR.
