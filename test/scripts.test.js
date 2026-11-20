@@ -116,6 +116,7 @@ const GH = `
 case "$*" in
   "pr view"*) echo "\${FAKE_STATE:-OPEN}" ;;
   *"-X PATCH"*) echo "https://example.test/edited" ;;
+  *"issues/comments/"*) printf '%s' "\${FAKE_EXISTING_BODY:-}" ;;
   api*) [ -n "\${FAKE_COMMENT_ID:-}" ] && echo "$FAKE_COMMENT_ID" ;;
   "pr comment"*) cp "$5" "\${FAKE_DIR}/posted.md"; echo "https://example.test/created" ;;
 esac
@@ -178,4 +179,30 @@ test('post-report: refuses a merged PR and malformed reports without calling gh 
   const noState = post('<!-- preflight -->\n## Self-review report\n')
   assert.notEqual(noState.status, 0)
   assert.match(noState.err, /state block/)
+})
+
+const LITE = REPORT.replace('{"reviewedSha":"abc"}', '{"reviewedSha":"abc","lite":true}')
+const FULL_BODY = '<!-- preflight -->\nreport\n<!-- preflight:state v1\n{"reviewedSha":"old","lite":false}\n-->'
+const LITE_BODY = '<!-- preflight -->\nreport\n<!-- preflight:state v1\n{"reviewedSha":"old","lite":true}\n-->'
+const OLD_NAME_BODY = '<!-- pr-self-review -->\nreport\n<!-- pr-self-review:state v1\n{"reviewedSha":"old"}\n-->'
+
+test('post-report: a lite report never replaces a full one', () => {
+  for (const body of [FULL_BODY, OLD_NAME_BODY]) {
+    const r = post(LITE, { FAKE_COMMENT_ID: '4242', FAKE_EXISTING_BODY: body })
+    assert.notEqual(r.status, 0)
+    assert.match(r.err, /already has a full preflight report/)
+    assert.doesNotMatch(r.log, /PATCH|pr comment/)
+  }
+})
+
+test('post-report: a lite report replaces a lite one, and a full report replaces a lite one', () => {
+  const lite = post(LITE, { FAKE_COMMENT_ID: '4242', FAKE_EXISTING_BODY: LITE_BODY })
+  assert.equal(lite.status, 0, lite.err)
+  assert.match(lite.log, /-X PATCH .*comments\/4242/)
+  const full = post(REPORT, { FAKE_COMMENT_ID: '4242', FAKE_EXISTING_BODY: LITE_BODY })
+  assert.equal(full.status, 0, full.err)
+  assert.match(full.log, /-X PATCH/)
+  const fresh = post(LITE)
+  assert.equal(fresh.status, 0, fresh.err)
+  assert.match(fresh.log, /pr comment 7/)
 })

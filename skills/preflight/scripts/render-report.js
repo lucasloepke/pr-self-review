@@ -27,6 +27,8 @@
 //                           | "Declined" | "Pre-existing", "commit": "sha", "evidence": "…", "reason": "…" } },
 //   "prior": { the previous state block },                                      optional (--update)
 //   "keptUnexplained": ["…"], "notVerified": ["…"], "invalidAgents": ["label"]   optional
+//   "lite": true                                                                 optional (also read from review.lite):
+//                  labelled, verdict capped at Ready with open items, marked in the state
 // }
 'use strict'
 const fs = require('fs')
@@ -113,6 +115,9 @@ function render(input) {
     ['Pending', 'Not run'].includes(checks.tests.result) || checks.proof.result === 'Not produced' ||
     reviewersNotRun.length) verdict = 'Ready with open items'
   else verdict = 'Ready for review'
+  // A lite run is a quick look (one reviewer, no skeptics): never a green light.
+  const lite = input.lite === true || review.lite === true
+  if (lite && verdict === 'Ready for review') verdict = 'Ready with open items'
 
   const statusCell = f => {
     if (fixed(f)) {
@@ -132,7 +137,10 @@ function render(input) {
   const tally = s => all.filter(f => f.severity === s).length
   const disp = s => all.filter(f => (s === 'Open' ? isOpen(f) : f.status === s)).length
 
-  const notVerified = [...(input.notVerified || [])]
+  const notVerified = [
+    ...(lite ? ['Lite run: one reviewer, no skeptics, and no tests, fixes or verification beyond what is shown — a quick look, not a full review.'] : []),
+    ...(input.notVerified || [])
+  ]
   for (const [k, label] of [['regression', 'Regression vs base'], ['e2e', 'End-to-end'], ['tests', 'Tests']]) {
     if (checks[k].result === 'Not run') notVerified.push(`${label}: not run${checks[k].notes ? ` — ${checks[k].notes}` : ''}`)
   }
@@ -153,7 +161,7 @@ function render(input) {
   out('## 🛫 Preflight report')
   out('')
   out(`**Verdict:** ${VERDICT_ICON[verdict]} ${verdict}`)
-  out(`**Reviewed:** \`${(input.headSha || '').slice(0, 7)}\` (base \`${(input.baseSha || '').slice(0, 7)}\`) · ${input.date} · ${input.mode === 'dont-stop' ? "don't-stop" : 'default'} mode · skill v${input.skillVersion}${input.dryRun ? ' · dry run' : ''}`)
+  out(`**Reviewed:** \`${(input.headSha || '').slice(0, 7)}\` (base \`${(input.baseSha || '').slice(0, 7)}\`) · ${input.date} · ${input.mode === 'dont-stop' ? "don't-stop" : 'default'} mode · skill v${input.skillVersion}${lite ? ' · lite run' : ''}${input.dryRun ? ' · dry run' : ''}`)
   out('')
   const COVERAGE_ICON = { covered: '✅', uncovered: '❌' }
   out('### 🎯 Intent')
@@ -239,7 +247,7 @@ function render(input) {
   out('')
 
   const state = {
-    reviewedSha: input.headSha, baseSha: input.baseSha, mode: input.mode, tier: input.tier, skill: input.skillVersion,
+    reviewedSha: input.headSha, baseSha: input.baseSha, mode: input.mode, tier: input.tier, skill: input.skillVersion, lite,
     brief, checks: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.result])),
     findings: all.map(f => ({
       id: f.id, file: f.file, line: f.line, lens: f.lens, severity: f.severity, claim: f.claim,

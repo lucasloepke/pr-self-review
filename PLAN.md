@@ -27,6 +27,7 @@ suppressions and an evaluation harness.
 /preflight 123 --update     # after new pushes: re-verify open findings, review only new changes
 /preflight --dry-run        # run everything, write the report to a local file; no commit, push or post
 /preflight --screenshots    # also capture before/after screenshots of visual changes (opt-in)
+/preflight --lite           # quick look that still posts: one reviewer, no skeptics, tests or fixes
 ```
 
 `--dry-run` also works on a branch with no PR (diffed against the default

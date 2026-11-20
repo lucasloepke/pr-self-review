@@ -14,7 +14,7 @@ something. A run with no Blocking or Important findings is a normal,
 successful result — say so plainly.
 
 ```
-/preflight [<pr>] [--dont-stop] [--update] [--dry-run] [--screenshots] [--brief <file>]
+/preflight [<pr>] [--lite] [--dont-stop] [--update] [--dry-run] [--screenshots] [--brief <file>]
              [--description <file>] [--issue <file>]
 ```
 
@@ -24,6 +24,7 @@ successful result — say so plainly.
 | `--dont-stop` | One stop: intent. Then fixes and finishes without pausing |
 | `--update` | After new pushes: re-verify open findings, review only new hunks |
 | `--dry-run` | Everything runs; the report is written to a file. No commit, push or post. Works with no PR |
+| `--lite` | A quick look that still posts: drafted brief used as is, one reviewer, no skeptics, tests, fixes or commits. Labelled, verdict never green. See *`--lite`* |
 | `--screenshots` | For visual changes: start the app on base and head, capture before/after screenshots, publish them to a `preflight-assets` branch. Off by default |
 | `--brief <file>` | A pre-confirmed brief (JSON); the intent stop is skipped |
 | `--description <file>` | Branch with no PR only: the would-be PR title (first line) and body. Passed to `gather.sh` |
@@ -81,7 +82,8 @@ bash <skill>/scripts/gather.sh [<pr>] [--since <sha>] [--description <file>] [--
 Read `meta.txt`. If `dirty: yes`, tell the author uncommitted changes are not
 part of the review. If `pr: none` and this is not a dry run, the draft PR is
 opened at the intent stop (phase 2), not before. If `prior-state.json` exists,
-load it: its `findings` are passed to the review as `priorFindings`.
+load it: its `findings` are passed to the review as `priorFindings` (and if it
+has `"lite": true`, also `priorFromLite: true`).
 
 Then, in the repo root:
 
@@ -307,6 +309,28 @@ Never post with `gh pr comment` directly.
 5. Phase 8 with `prior` set to `prior-state.json`, which fills in *Changes
    since the last run*. Deferred and declined findings are carried forward
    untouched; findings re-verified in step 2 get a decision from that result.
+
+## `--lite`
+
+A quick look that still posts — for trying the skill and seeing its output
+where it lands. Not a substitute for a full run; `--update` and `--dont-stop`
+do not apply.
+
+1. Phase 1 as usual.
+2. Brief: with `--brief`, use it; otherwise run the workflow in `brief` mode
+   and use the brief as drafted, without the intent stop. Add "Brief drafted,
+   not confirmed by the author" to `notVerified`.
+3. Checks: `ci: current` → the Tests row from CI; otherwise `Not run`, "lite
+   run". Regression vs base and Proof: `Not run`, "lite run". No
+   `run-checks.js`, no screenshots.
+4. Review: phase 4 with `lite: true` — one reviewer whatever the tier, no
+   skeptics; serious findings come back marked unproven.
+5. No triage, fixes or verification: every finding is `Open`.
+6. Phase 8 with `lite: true` in `report-input.json`: redact, render (the
+   report is labelled and its verdict never better than Ready with open
+   items), then `post-report.sh` unless `--dry-run`. No commits, no pushes.
+   `post-report.sh` will not replace a full report with a lite one; if it
+   refuses, tell the author where the report file is.
 
 ## Common mistakes
 

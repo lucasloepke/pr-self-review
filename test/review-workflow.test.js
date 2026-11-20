@@ -195,6 +195,29 @@ test('a prior finding reworded on the next run keeps its id and stays decided (r
   assert.equal(result.findings.length, 0)
 })
 
+test('lite: one reviewer whatever the tier, no skeptics, serious findings kept as unproven', async () => {
+  const maint = [finding({ lens: 'simplification', file: 's.js', claim: 'Wrapper class has a single caller and adds nothing' })]
+  const { result, labels } = await run({ lite: true, tier: 'Core', changedLines: 900 },
+    label => (label === 'all-lenses' ? review([finding(), ...maint]) : undefined))
+  assert.deepEqual(labels, ['all-lenses'])
+  assert.equal(result.lite, true)
+  const by = Object.fromEntries(result.findings.map(f => [f.file, f]))
+  assert.equal(by['src/a.js'].skeptic, 'unproven')
+  assert.match(by['src/a.js'].skepticReason, /Lite run/)
+  assert.equal(by['s.js'].skeptic, 'skipped')
+  assert.equal((await run({ lite: true, tier: 'Inert' }, () => review([]))).labels.length, 0)
+})
+
+test('after a lite run, its Suggestions and Nits are not treated as already raised', async () => {
+  const prior = [{ id: 'F-bbbbbb', file: 's.js', severity: 'suggestion', status: 'Open', claim: 'Wrapper class has a single caller and adds nothing' }]
+  const maint = [finding({ lens: 'simplification', file: 's.js', claim: 'Wrapper class has a single caller and adds nothing' })]
+  const afterFull = await run({ priorFindings: prior }, shared([], maint))
+  assert.deepEqual(afterFull.result.carried.map(f => f.id), ['F-bbbbbb'])
+  const afterLite = await run({ priorFindings: prior, priorFromLite: true }, shared([], maint))
+  assert.deepEqual(afterLite.result.carried, [])
+  assert.deepEqual(afterLite.result.findings.map(f => f.id), ['F-bbbbbb'])
+})
+
 test('suggestions and nits are capped at five shown each', async () => {
   const many = Array.from({ length: 7 }, (_, i) => finding({
     lens: 'simplification', file: `f${i}.js`, claim: `Helper number ${i} duplicates existing utility module${i}` }))

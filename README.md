@@ -12,6 +12,7 @@ fixes what survives, and leaves one report comment on the PR.
 /preflight --dont-stop      # after you confirm intent, fix and post without pausing
 /preflight 123 --update     # after new pushes: re-check open findings, review only what is new
 /preflight --screenshots    # also capture before/after screenshots of visual changes (off by default)
+/preflight --lite           # quick look: one reviewer, no skeptics or fixes; still posts the report (labelled lite)
 ```
 
 ## What it does to your repo and PR
@@ -38,6 +39,12 @@ items · ⛔ Not ready), the confirmed intent, a checks table (tests,
 regression vs base, proof), every Blocking and Important finding with the
 skeptic's verdict and its status, what was not verified, and a hidden state
 block so the next run remembers what was decided.
+
+**Lite runs (`--lite`).** For trying it out or a quick look: the drafted brief
+is used without asking, one reviewer runs, and there are no skeptics, tests,
+fixes or commits — about two agents instead of a dozen. The report is still
+posted to the PR, labelled "lite run", and its verdict is never ✅. A lite
+report never replaces a full one.
 
 ## How it works
 
