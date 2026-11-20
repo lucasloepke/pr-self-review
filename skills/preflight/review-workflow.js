@@ -23,6 +23,9 @@
 //   tier            "Core" | "Shared" | "Leaf" | "Inert"  (PR-level; default "Shared")
 //   changedLines    number of changed lines (Core diffs of 400+ split further)
 //   dontStop        true → Suggestions also go through the skeptic
+//   lite            true → one reviewer whatever the tier, no skeptics (findings kept, marked unproven)
+//   priorFromLite   true → the prior findings came from a lite run: keep their ids, but a Suggestion
+//                   or Nit it raised still counts as new (a lite run is not a real first look)
 //   scopeNote       optional sentence, e.g. "The diffs hold only hunks added since <sha>."
 //   conventions     optional string[] of repo-relative convention files
 //   leads           optional string[] of files in workDir holding scanner / test output
@@ -332,6 +335,7 @@ function assignIds(findings, prior) {
 function alreadyDecided(f) {
   if (f.priorStatus === undefined) return false
   if (/^(deferred|declined|pre-existing)/i.test(f.priorStatus)) return true
+  if (A.priorFromLite === true) return false
   return f.priorSeverity === 'suggestion' || f.priorSeverity === 'nit'
 }
 
@@ -583,7 +587,8 @@ Do not edit or create files other than your answer.`,
 // ---------------------------------------------------------------------------
 
 const tier = ['Core', 'Shared', 'Leaf', 'Inert'].includes(A.tier) ? A.tier : 'Shared'
-const plan = planReviewers(tier, A.changedLines)
+// Lite: one reviewer with every lens, whatever the tier (still none for Inert).
+const plan = A.lite === true ? planReviewers(tier === 'Inert' ? 'Inert' : 'Leaf', 0) : planReviewers(tier, A.changedLines)
 
 phase('Review')
 log(`Tier ${tier}: ${plan.length} reviewer(s)${plan.length ? ` — ${plan.map(r => r.name).join(', ')}` : ''}`)
@@ -614,7 +619,8 @@ log(`Raised ${raised.length} after de-duplication; ${carried.length} already dec
 
 phase('Skeptic')
 const needsSkeptic = f => RANK[f.severity] >= RANK.important || (A.dontStop === true && f.severity === 'suggestion')
-const toCheck = fresh.filter(needsSkeptic)
+// Lite runs no skeptics: serious findings are kept and marked unproven, never dropped.
+const toCheck = A.lite === true ? [] : fresh.filter(needsSkeptic)
 log(`Skeptic on ${toCheck.length} finding(s)`)
 
 const verdicts = settled(await parallel(toCheck.map(f => () => agent(skepticPrompt(f),
@@ -624,7 +630,12 @@ const rejected = []
 const kept = []
 for (const f of fresh) {
   const i = toCheck.indexOf(f)
-  if (i === -1) { kept.push({ ...f, skeptic: 'skipped' }); continue }
+  if (i === -1) {
+    kept.push(A.lite === true && needsSkeptic(f)
+      ? { ...f, skeptic: 'unproven', skepticReason: 'Lite run: no skeptic checked this finding.' }
+      : { ...f, skeptic: 'skipped' })
+    continue
+  }
   const v = verdicts[i]
   // A skeptic that failed has disproved nothing: keep the finding, marked unproven.
   if (!v) { kept.push({ ...f, skeptic: 'unproven', skepticReason: 'The skeptic did not return.' }); continue }
@@ -663,4 +674,4 @@ const counts = {
 }
 log(`${counts.blocking} blocking · ${counts.important} important · ${counts.suggestion} suggestion · ${counts.nit} nit — ${counts.rejected} rejected by the skeptic`)
 
-return { mode, tier, reviewers, findings, collapsed, rejected, carried, suppressed, discarded, counts }
+return { mode, tier, lite: A.lite === true, reviewers, findings, collapsed, rejected, carried, suppressed, discarded, counts }

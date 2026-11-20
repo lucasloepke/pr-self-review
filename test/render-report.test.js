@@ -148,3 +148,15 @@ test('emojis mark verdict, severity, results and status; the state block stays p
   const state = markdown.split('<!-- preflight:state v1\n')[1]
   assert.doesNotMatch(state, /[🔴🟠🔵⚪✅🔓📌🚫🎯]/u)
 })
+
+test('lite: labelled, never green, explained, and marked in the state', () => {
+  const { markdown, verdict } = render(input({ lite: true }))
+  assert.equal(verdict, 'Ready with open items')
+  assert.match(markdown, /\*\*Verdict:\*\* 🟡 Ready with open items/)
+  assert.match(markdown, /· lite run/)
+  assert.match(markdown, /- Lite run: one reviewer, no skeptics/)
+  const state = JSON.parse(markdown.split('<!-- preflight:state v1\n')[1].split('\n-->')[0])
+  assert.equal(state.lite, true)
+  assert.equal(render(withFindings([f('F-1', 'blocking')], {}, { lite: true })).verdict, 'Not ready')
+  assert.equal(JSON.parse(render(input()).markdown.split('<!-- preflight:state v1\n')[1].split('\n-->')[0]).lite, false)
+})
